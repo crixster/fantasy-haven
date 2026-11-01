@@ -86,7 +86,18 @@ function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k]
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
 function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
  if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];let placedBld = put(k,x,y);assign();calc();if(typeof checkHeroHomeBuilt==='function')checkHeroHomeBuilt(placedBld);}
-function demolish(x,y){let i=y*N+x,b=bg[i];if(b){b.dead=1;bl.splice(bl.indexOf(b),1);bg[i]=null;b.$.forEach((v,j)=>res['gwsc'[j]]+=v/2);assign()}else if(rd[i]){rd[i]=0;res.g+=1}calc()}
+
+function demolish(x,y){
+  let i=y*N+x,b=bg[i];
+  if(b){
+    if(b.k==='townhall') return toast('🏛️ The Town Hall cannot be demolished! It must be protected from monsters.');
+    b.dead=1;bl.splice(bl.indexOf(b),1);bg[i]=null;b.$.forEach((v,j)=>res['gwsc'[j]]+=v/2);assign()
+  }else if(rd[i]){rd[i]=0;res.g+=1}
+  calc()
+}
+
+
+
 const cost=b=>[b.$[0]&&'🪙'+b.$[0],b.$[1]&&'🪵'+b.$[1],b.$[2]&&'🪨'+b.$[2],b.$[3]&&'💎'+b.$[3]].filter(Boolean).join(' ');
 
 function find(sx,sy,gx,gy){const E=(x,y)=>y*N+x,gi=E(gx,gy),si=E(sx,sy),G=new Float32Array(N*N).fill(1e9),P=new Int16Array(N*N).fill(-1),C=new Uint8Array(N*N),Q=new Uint8Array(N*N),F={};
