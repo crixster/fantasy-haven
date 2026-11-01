@@ -227,7 +227,7 @@ function render(t){
   if(cam.z>.7){let k=0;g.font=`bold ${12*K}px system-ui`;g.textAlign='center';
    for(const n of vis){let tx=n.bub&&k<24?n.bub.t:n===sl?n.act:null;if(!tx)continue;k++;let px=ox+n.x*s,py=oy+(n.y-.6)*s,w=g.measureText(tx).width+12*K,th=n.bub&&n.bub.th;
     g.fillStyle='rgba(255,255,255,.95)';g.beginPath();g.roundRect(px-w/2,py-26*K,w,20*K,8*K);g.fill();g.beginPath();
-    if(th){g.arc(px,py-2*K,3*K,0,7);g.arc(px+4*K,py-9*K,2*K,0,7)}else{g.moveTo(px-4*K,py-6*K);g.lineTo(px+4*K,py-6*K);g.lineTo(px,py)}g.fill();g.fillStyle='#4a3b52';g.fillText(tx,px,py-12*K)}}
+    if(th){g.arc(px,py-2*K,3*K,0,7);g.arc(px+4*K,py-9*K,2*K,0,7)}else{g.moveTo(px-4*K,py-6*K);g.lineTo(px+4*K,py-6*K);g.lineTo(px,py)}g.fill();g.fillStyle='#4a3b52';g.fillText(tx,px,py-12*K)}
 
   // Render hero and portals on the canvas
   if(typeof townDraw === 'function') townDraw();
