@@ -228,6 +228,10 @@ function render(t){let dtr=Math.min(.1,t-lastR);lastR=t;if(follow){cam.tx=follow
    g.fillStyle='rgba(255,255,255,.95)';g.beginPath();g.roundRect(px-w/2,py-26*K,w,20*K,8*K);g.fill();g.beginPath();
    if(th){g.arc(px,py-2*K,3*K,0,7);g.arc(px+4*K,py-9*K,2*K,0,7)}else{g.moveTo(px-4*K,py-6*K);g.lineTo(px+4*K,py-6*K);g.lineTo(px,py)}g.fill();g.fillStyle='#4a3b52';g.fillText(tx,px,py-12*K)}}}
 
+ // 🎨 Render hero and portals on the canvas
+ if(typeof townDraw === 'function') townDraw();
+}
+
 function minimap(){for(let i=0;i<N*N;i++){mg.fillStyle=rd[i]?'#c9a77a':bg[i]?'#e86a9a':tc[i];mg.fillRect(i%N,i/N|0,1,1)}
  mg.fillStyle='#fff';npcs.forEach(n=>{if(!n.in||n.in.o)mg.fillRect(n.x|0,n.y|0,1,1)});
  let w=CW/(T*cam.z*K),h=CH/(T*cam.z*K);mg.strokeStyle='#fff';mg.lineWidth=.8;mg.strokeRect(cam.x-w/2,cam.y-h/2,w,h)}
@@ -290,10 +294,25 @@ document.onclick=e=>{let a=e.target.closest('[data-a]');if(!a)return;let[c,v]=a.
  else if(c=='new'){if(newArm){localStorage.removeItem('fh1');newArm=0;init();view=null}else{newArm=1;toast('Tap “New town” again to confirm')}}
  hintUI();refresh()};
 function ui(){let bd=bl.reduce((a,b)=>a+(b.home||0),0),fb=bd-npcs.length;
- $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <button data-a="cheat" style="font-size:10px;padding:1px 4px;margin-left:4px;background:#ffe5b4;border:1px solid #c9a77a;border-radius:4px;cursor:pointer;">🎁 Cheat</button> <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛲'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
+ $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <button data-a="cheat" style="font-size:10px;padding:1px 4px;margin-left:4px;background:#ffe5b4;border:1px solid #c9a77a;border-radius:4px;cursor:pointer;">🎁 Cheat</button> <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛏️'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
 
 let last=performance.now();
-function loop(now){let dt=Math.min(.1,(now-last)/1000);last=now;if(spd){let sd=dt*spd;tm+=sd*.2;if(tm>=24){tm-=24;newDay()}sim(sd)}render(now/1000);requestAnimationFrame(loop)}
+function loop(now){
+  let dt=Math.min(.1,(now-last)/1000);
+  last=now;
+  if(spd){
+    let sd=dt*spd;
+    tm+=sd*.2;
+    if(tm>=24){tm-=24;newDay()}
+    sim(sd);
+    
+    // ⏱️ Tick hero simulation and dungeon portal raid loops
+    if(typeof townTick === 'function') townTick(sd);
+  }
+  render(now/1000);
+  requestAnimationFrame(loop);
+}
+
 let sv=null;try{sv=JSON.parse(localStorage.getItem('fh1'))}catch(e){}
 try{init(sv)}catch(e){init()}
 addEventListener('resize',rs);rs();ui();hintUI();
