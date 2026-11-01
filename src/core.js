@@ -12,9 +12,10 @@
 const N=50,T=32,$=i=>document.getElementById(i),cv=$('c'),g=cv.getContext('2d'),mm=$('mm'),mg=mm.getContext('2d'),sheet=$('sheet'),
 clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),R=(a,b)=>a+Math.random()*(b-a),pk=a=>a[Math.random()*a.length|0];
 
-/* --- DATA: key|emoji|name|category|gold/wood/stone/crystal cost|props
-   props: home=beds job=slots f/w/s/g/c=per-day output (negative = input) hap/bea/mag/tou=appeal
-          o=open-air d=decoration r=road type u=population needed --- */
+/* --- CONSTANTS FOR PHASE 2 BUILDING HP & REPAIR --- */
+const BLD_BASE_HP=100, REPAIR_COST_G=15, REPAIR_COST_W=10;
+
+/* --- DATA: key|emoji|name|category|gold/wood/stone/crystal cost|props --- */
 const CAT=`cottage|🏠|Cottage|Home|40/10/0/0|home=2
 family|🏡|Family House|Home|90/25/5/0|home=4
 noble|🏰|Noble Home|Home|220/20/40/0|home=3,bea=2,g=6,u=20
@@ -57,7 +58,6 @@ cottage|6|Build 6 cottages for newcomers
 market|2|Open 2 markets
 wizard|1|Raise a wizard tower
 theater|1|Build a theater`.split('\n').map(l=>{let[k,n,t]=l.split('|');return[k,+n,t]});
-// terrain 0 grass,1 forest,2 hill,3 river,4 lake,5 flowers,6 crystal; palette h,s,l per season
 const PAL=['100,52,76|98,52,70|42,52,72|195,25,92','110,45,68|108,45,62|35,55,66|200,25,88','35,35,76|35,35,72|30,35,70|210,20,93','200,70,78|200,72,74|205,60,74|200,40,86','200,70,72|200,72,68|205,60,68|200,40,82','100,52,78|98,50,72|45,50,74|195,25,92','280,60,84|280,60,82|280,55,80|280,40,90'].map(s=>s.split('|').map(q=>q.split(',').map(Number)));
 const TR=['🌳','🌳','🍁','🌲'],FL=['🌸','🌼','🌻','🌱'],SN=['🌸 Spring','☀️ Summer','🍂 Autumn','❄️ Winter'],FN=['Spring Bloom Event','Moonlight Market','Harvest Festival','Winter Celebration'],
 WI={sun:'☀️',rain:'🌧️',fog:'🌫️',snow:'❄️'},IC={f:'🍞',w:'🪵',s:'🪨',g:'🪙',c:'💎'},CC={Home:'#ffd1dc',Work:'#ffe5b4',Joy:'#c8f0c8',Magic:'#dcc8ff',Path:'#fff3b0'},
@@ -66,13 +66,11 @@ LV={Cheerful:['park','festival','tavern','fountain'],Lazy:['park','garden','home
 NAMES='Lily Moss Pip Fern Bram Willa Odo Tansy Rue Finn Hazel Juno Ivy Barley Clover Nell Orin Sage Poppy Thistle Wren Alder Daisy Gus Mabel Rowan Tilly Elm Briar Posy'.split(' '),
 CHAT=['Lovely day, ','Have you tried the bread, ','How’s work, ','Tea later, ','So good to see you, '];
 
-/* --- STATE --- */
 let S0,ter,ter0,vm,rd,bg,bl,npcs,NM,res,tm,D,spd=1,wx,wxT,fest,quests,done,tc,view,tool,cat='Home',follow,M={},cnt={},nid=0,hungry=0,won=0,fr=0,lastR=0,K=1,CW,CH,newArm=0;
 const cam={x:25,y:25,z:1,tx:25,ty:25,tz:0},ac={s:0,t:0},SP={},PS=Array.from({length:120},()=>({x:Math.random()*900,y:Math.random()*900,v:Math.random(),p:Math.random()*6}));
 const season=()=>((D-1)/8|0)%4,hh=()=>String(tm|0).padStart(2,'0')+':'+String(tm%1*60|0).padStart(2,'0');
 function spr(e){if(SP[e])return SP[e];let c=document.createElement('canvas');c.width=c.height=64;let x=c.getContext('2d');x.font='46px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(e,32,36);return SP[e]=c}
 
-/* --- WORLD GENERATION (seeded: same seed = same map, so saves only store the seed) --- */
 function gen(){let s=S0;const r=()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
  const fld=()=>{let a=Array.from({length:N*N},r);for(let k=0;k<4;k++)a=a.map((_,i)=>{let x=i%N,y=i/N|0,t=0,c=0;for(let u=-2;u<=2;u++)for(let v=-2;v<=2;v++){let X=x+u,Y=y+v;if(X>=0&&Y>=0&&X<N&&Y<N){t+=a[Y*N+X];c++}}return t/c});let lo=Math.min(...a),hi=Math.max(...a);return a.map(v=>(v-lo)/(hi-lo))};
  let h=fld(),m=fld(),c=fld();
@@ -81,12 +79,9 @@ function gen(){let s=S0;const r=()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
  for(let y=19;y<31;y++)for(let x=19;x<31;x++)ter[y*N+x]=0}
 function paint(){let s=season();tc=ter.map((t,i)=>{let[h,sa,l]=PAL[t][s];return`hsl(${h},${sa}%,${l+((i%N*7+(i/N|0)*13)%4)*1.2}%)`})}
 
-/* --- BUILDING --- */
-/* --- LAND RULES, TERRAFORMING, TRADE --- */
 const TL={g:0,f:1,h:2,l:5,x:6},LL={g:'grass',f:'forest',h:'hill',l:'flowers',x:'crystal',w:'3×3 water'},
-// terraform: emoji, name, land types it works on, resulting type, cost g/w/s/c, [gained resource, amount]
 TF={t_clear:['🪓','Clear Trees',[1],0,[10,0,0,0],'w',3],t_plant:['🌲','Plant Trees',[0,5],1,[6,0,0,0]],t_flat:['⛏️','Level Hill',[2],0,[15,0,0,0],'s',5],t_raise:['⛰️','Raise Hill',[0,1,5],2,[20,0,10,0]],t_dig:['💧','Dig Water',[0,1,2,5],4,[25,0,0,0]],t_fill:['🧱','Fill Water',[3,4],0,[0,5,8,0]],t_bloom:['🌸','Sow Flowers',[0],5,[6,0,0,0]],t_charm:['🔮','Infuse Crystal',[0,1,2,5],6,[0,0,0,3]]},
-PR={f:[3,1,10],w:[4,2,10],s:[6,3,10],c:[60,30,1]}; // merchant: buy price, sell price, batch size
+PR={f:[3,1,10],w:[4,2,10],s:[6,3,10],c:[60,30,1]};
 const wat=(x,y)=>x>=0&&y>=0&&x<N&&y<N&&(ter[y*N+x]==3||ter[y*N+x]==4);
 function big(x,y){for(let a=x-2;a<=x;a++)for(let b=y-2;b<=y;b++){let k=1;for(let u=0;u<3&&k;u++)for(let v=0;v<3;v++)if(!wat(a+u,b+v)){k=0;break}if(k)return 1}return 0}
 const can=(k,x,y)=>k in TF?!bg[y*N+x]&&!rd[y*N+x]&&TF[k][2].includes(ter[y*N+x]):ok(k,x,y);
@@ -97,13 +92,12 @@ function vTrade(){return'<b>💱 Traveling Merchant</b><div class="lst">'+Object
 function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=b.u>npcs.length;return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${l?'🔒 pop '+b.u:cost(b)}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
  return'<div class="ch">'+['Home','Work','Joy','Magic','Path','Land'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+L.join('')+'</div>'}
 function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
-function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let o={...b,x,y,res:[],wk:[]};bl.push(o);bg[i]=o;return o}
+function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
 function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
  if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];put(k,x,y);assign();calc()}
 function demolish(x,y){let i=y*N+x,b=bg[i];if(b){b.dead=1;bl.splice(bl.indexOf(b),1);bg[i]=null;b.$.forEach((v,j)=>res['gwsc'[j]]+=v/2);assign()}else if(rd[i]){rd[i]=0;res.g+=1}calc()}
 const cost=b=>[b.$[0]&&'🪙'+b.$[0],b.$[1]&&'🪵'+b.$[1],b.$[2]&&'🪨'+b.$[2],b.$[3]&&'💎'+b.$[3]].filter(Boolean).join(' ');
 
-/* --- PATHFINDING: A* on the grid; roads are cheap, bridges cross water, buildings block --- */
 function find(sx,sy,gx,gy){const E=(x,y)=>y*N+x,gi=E(gx,gy),si=E(sx,sy),G=new Float32Array(N*N).fill(1e9),P=new Int16Array(N*N).fill(-1),C=new Uint8Array(N*N),Q=new Uint8Array(N*N),F={};
  let O=[si];G[si]=0;Q[si]=1;let it=0;
  while(O.length&&it++<3000){let bi=0;for(let i=1;i<O.length;i++)if(F[O[i]]<F[O[bi]])bi=i;let c=O.splice(bi,1)[0];
@@ -114,7 +108,6 @@ function find(sx,sy,gx,gy){const E=(x,y)=>y*N+x,gi=E(gx,gy),si=E(sx,sy),G=new Fl
    let ng=G[c]+(rd[i]?1:[2,3,4,0,0,2,3][t]);if(ng<G[i]){G[i]=ng;P[i]=c;F[i]=ng+1.4*(Math.abs(x-gx)+Math.abs(y-gy));if(!Q[i]){Q[i]=1;O.push(i)}}}}
  return null}
 
-/* --- NPCs --- */
 function spawn(h,o){let p=pk(Object.keys(PERS)),n={id:nid++,name:pk(NAMES)+(nid>30?' '+String.fromCharCode(65+nid%26)+'.':''),age:18+Math.random()*50|0,pers:p,hap:60,en:80,wealth:20,fr:{},home:h,work:null,
  x:h?h.x+.5:25.5,y:h?h.y+.5:25.5,path:[],in:h,tgt:h,act:'Settling in',bub:null,cd:0,sp:R(.9,1.2)};if(o)Object.assign(n,o);npcs.push(n);NM.set(n.id,n);return n}
 function assign(){bl.forEach(b=>{b.res=[];b.wk=[]});
@@ -126,7 +119,6 @@ function go(n,t,act){if(!t)return;n.act=act;n.tgt=t;if(Math.abs(n.x-t.x-.5)<.7&&
  let p=find(n.x|0,n.y|0,t.x,t.y);if(p){n.path=p;n.in=null}else{n.path=[];n.act='Can’t find a way there. Needs a road!';n.tgt=null}}
 function arrive(n){let b=n.tgt;if(b&&b.k){n.in=b;if(b.o){n.x+=R(-.3,.3);n.y+=R(-.15,.3)}}}
 const say=(n,t,th)=>n.bub={t,th,l:4.5};
-// Daily schedule: sleep, wake, work, lunch, leisure by personality, festivals, home
 function plan(n,h){const P=n.pers;let t,a;
  if(fest&&h>=15&&h<22){t=near(n,b=>b.k=='festival')||near(n,b=>b.o)||wander(n,3);a='Joining the '+fest;n.hap=Math.min(100,n.hap+3)}
  else if(h>=22||h<6||n.en<10){t=n.home;a='Sleeping'}
@@ -141,13 +133,11 @@ function plan(n,h){const P=n.pers;let t,a;
 function upd(n,dt){let sl=n.act=='Sleeping'&&n.in;n.en=clamp(n.en+(sl?9:-2.2)*dt*.2,0,100);n.cd-=dt;if(n.bub&&(n.bub.l-=dt)<0)n.bub=null;
  if(n.path.length){let p=n.path[0],dx=p[0]+.5-n.x,dy=p[1]+.5-n.y,d=Math.hypot(dx,dy),st=n.sp*1.7*dt*(rd[(n.y|0)*N+(n.x|0)]?1.35:1);
   if(d<=st){n.x=p[0]+.5;n.y=p[1]+.5;n.path.shift();if(!n.path.length)arrive(n)}else{n.x+=dx/d*st;n.y+=dy/d*st}}}
-// NPCs sharing a tile chat; friendship grows with each chat
 function social(){let G=new Map();npcs.forEach(n=>{if(n.in&&!n.in.o)return;let k=(n.x|0)+','+(n.y|0);(G.get(k)||G.set(k,[]).get(k)).push(n)});
  G.forEach(a=>{if(a.length<2)return;let[u,v]=a;if(u.cd>0||v.cd>0)return;u.cd=v.cd=8;let o=(u.fr[v.id]||0)+R(2,6);u.fr[v.id]=o;v.fr[u.id]=(v.fr[u.id]||0)+R(2,6);
   let h=o>60?'💖 ':o>30?'💕 ':'💬 ';say(u,h+pk(CHAT)+v.name+'!');say(v,h+'Hi '+u.name+'!');u.act='Chatting with '+v.name;v.act='Chatting with '+u.name})}
 function thought(n){return n.hap<35?pk(['I’m so unhappy…','This town needs more fun!']):!n.home?'I need a home…':!n.work?'I’d love a job.':res.f<8?'We’re running low on food!':!cnt.bakery?'A bakery would be lovely.':!cnt.park&&!cnt.garden?'Could we have a park?':M.mag<10?'A touch of magic would be nice.':pk(['What a cozy town!','I love living here.','The lanterns are pretty.'])}
 
-/* --- ECONOMY, DAILY TICK, METRICS --- */
 function newDay(){D++;let s=season(),d=(D-1)%8+1,mul=[1,1.3,1.5,.4][s];
  for(const b of bl){let st=b.job?Math.min(1,b.wk.length/b.job):0;if(!st)continue;let ds={},ok=1;for(const r of'fwsgc'){let v=(b[r]||0)*st*(1+.5*((b.lv||1)-1));if(r=='f'&&v>0)v*=mul;if(v<0&&res[r]+v<0)ok=0;ds[r]=v}if(ok)for(const r in ds)res[r]+=ds[r]}
  let emp=npcs.filter(n=>n.work).length;res.g+=emp*3+M.tou*.3*[1.2,1.3,1,.7][s];res.f-=npcs.length*.35;if(res.g<40){res.g+=40;toast('🎒 Travelers left tips: +40 🪙')}hungry=0;if(res.f<0){res.f=0;hungry=1}
@@ -169,15 +159,16 @@ function roll(){let w=[[.5,.3,.2,0],[.75,.2,.05,0],[.4,.3,.3,0],[.3,0,.2,.5]][se
 function sim(sd){fr++;let h=tm|0;for(const n of npcs){upd(n,sd);if((n.id+fr)%15==0&&n.slot!==h){n.slot=h;plan(n,h)}}
  if((ac.s+=sd)>.7){ac.s=0;social()}if((ac.t+=sd)>9&&npcs.length){ac.t=0;let n=pk(npcs);if(!n.in||n.in.o)say(n,'💭 '+thought(n),1)}if((wxT-=sd*.2)<=0)roll()}
 
-/* --- SAVE / LOAD (LocalStorage) --- */
-function save(){try{let ix=new Map(bl.map((b,i)=>[b,i]));localStorage.setItem('fh1',JSON.stringify({S:S0,tf:ter.map((t,i)=>t!=ter0[i]?[i,t]:0).filter(Boolean),res,H:tm,D,rd:Array.from(rd),bl:bl.map(b=>[b.k,b.x,b.y]),nid,q:quests,done,
- np:npcs.map(n=>({id:n.id,name:n.name,age:n.age,pers:n.pers,hap:n.hap,en:n.en,wealth:n.wealth,fr:n.fr,h:ix.has(n.home)?ix.get(n.home):-1,w:ix.has(n.work)?ix.get(n.work):-1}))}));toast('Saved 💾')}catch(e){toast('Saving is unavailable here')}}
+function repairBuilding(b){if(!b)return;let missing=b.mhp-b.hp;if(missing<=0)return toast('Building is at full health');if(res.g<REPAIR_COST_G||res.w<REPAIR_COST_W)return toast(`Need 🪙${REPAIR_COST_G} 🪵${REPAIR_COST_W} to repair`);res.g-=REPAIR_COST_G;res.w-=REPAIR_COST_W;b.hp=b.mhp;toast('Repaired '+b.n);calc();refresh()}
+
+function save(){try{let ix=new Map(bl.map((b,i)=>[b,i]));localStorage.setItem('fh1',JSON.stringify({S:S0,tf:ter.map((t,i)=>t!=ter0[i]?[i,t]:0).filter(Boolean),res,H:tm,D,rd:Array.from(rd),bl:bl.map(b=>[b.k,b.x,b.y,b.hp]),nid,q:quests,done,
+ np:npcs.map(n=>({id:n.id,name:n.name,age:n.age,pers:n.pers,hap:n.hap,en:n.en,wealth:n.wealth,fr:n.fr,h:ix.has(n.home)?ix.get(n.home):-1,w:ix.has(n.work)?ix.get(n.work):-1}))}));toast('Saved 💾')}catch(e){toast('Saving is unavailable here')}
+}
 function init(sv){S0=sv?sv.S:Math.random()*1e9|0;gen();ter0=ter.slice();if(sv&&sv.tf)sv.tf.forEach(([i,t])=>ter[i]=t);vm=null;rd=new Uint8Array(N*N);bg=new Array(N*N).fill(null);bl=[];npcs=[];NM=new Map();nid=0;done=[];quests=[];fest='';wx='sun';wxT=5;follow=null;
- if(sv){res=sv.res;tm=sv.H;D=sv.D;rd=Uint8Array.from(sv.rd);sv.bl.forEach(([k,x,y])=>put(k,x,y));sv.np.forEach(o=>{let h=bl[o.h]||null;let n=spawn(h,o);n.home=h;n.work=bl[o.w]||null});nid=sv.nid;done=sv.done||[];quests=sv.q||[]}
+ if(sv){res=sv.res;tm=sv.H;D=sv.D;rd=Uint8Array.from(sv.rd);sv.bl.forEach(([k,x,y,hp])=>{let b=put(k,x,y);if(b&&hp!==undefined)b.hp=hp;});sv.np.forEach(o=>{let h=bl[o.h]||null;let n=spawn(h,o);n.home=h;n.work=bl[o.w]||null});nid=sv.nid;done=sv.done||[];quests=sv.q||[]}
  else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park'],[28,24,'farm']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
  paint();assign();calc();qgen()}
 
-/* --- RENDERING --- */
 function rs(){K=Math.min(devicePixelRatio||1,2);cv.width=CW=innerWidth*K|0;cv.height=CH=innerHeight*K|0;if(!cam.tz)cam.z=cam.tz=clamp(innerWidth/(13*T),.5,2)}
 const w2=(sx,sy)=>{let s=T*cam.z*K;return[(sx*K-CW/2)/s+cam.x,(sy*K-CH/2)/s+cam.y]};
 function render(t){let dtr=Math.min(.1,t-lastR);lastR=t;if(follow){cam.tx=follow.x;cam.ty=follow.y}
@@ -192,7 +183,8 @@ function render(t){let dtr=Math.min(.1,t-lastR);lastR=t;if(follow){cam.tx=follow
   else if(!bg[i]){let sw=Math.sin(t*1.6+x*.7+y*.4)*.04;
    if(tt==1)g.drawImage(spr(TR[se]),x+sw-.05,y-.15,1.1,1.1);else if(tt==5)g.drawImage(spr(FL[se]),x+.2+sw,y+.25,.6,.6);
    else if(tt==2)g.drawImage(spr('⛰️'),x,y-.05,1,1);else if(tt==6)g.drawImage(spr('💎'),x+.1,y+.1+Math.sin(t*2+x)*.05,.8,.8)}}
- for(const b of bl){if(b.x<x0||b.x>x1||b.y<y0||b.y>y1)continue;if(!b.d){g.fillStyle=CC[b.cat];g.beginPath();g.roundRect(b.x+.04,b.y+.04,.92,.92,.2);g.fill()}g.drawImage(spr(b.e),b.x+.02,b.y-.1,.96,.96)}
+ for(const b of bl){if(b.x<x0||b.x>x1||b.y<y0||b.y>y1)continue;if(!b.d){g.fillStyle=CC[b.cat];g.beginPath();g.roundRect(b.x+.04,b.y+.04,.92,.92,.2);g.fill()}g.drawImage(spr(b.e),b.x+.02,b.y-.1,.96,.96);
+  if(b.hp!==undefined&&b.hp<b.mhp){let bw=.8,bx=b.x+0.1,by=b.y-0.15;g.fillStyle='#0008';g.fillRect(bx,by,bw,.08);g.fillStyle='#e33';g.fillRect(bx,by,bw*Math.max(0,b.hp/b.mhp),.08)}}
  if(tool&&tool!='X'&&(tool in TF||BK[tool].ln||BK[tool].r==3)){if(!vm){vm=new Uint8Array(N*N);for(let i=0;i<N*N;i++)vm[i]=can(tool,i%N,i/N|0)?1:0}g.fillStyle=`rgba(110,255,150,${.3+Math.sin(t*4)*.1})`;for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(vm[y*N+x])g.fillRect(x+.06,y+.06,.88,.88)}
  let vis=npcs.filter(n=>(!n.in||n.in.o)&&n.x>x0-1&&n.x<x1+2&&n.y>y0-1&&n.y<y1+2).sort((a,b)=>a.y-b.y),sl=view&&view.t=='npc'?view.o:null;
  for(const n of vis){let bob=n.path.length?Math.abs(Math.sin(t*9+n.id))*.06:0;g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(n.x,n.y+.02,.17,.07,0,0,7);g.fill();
@@ -211,20 +203,17 @@ function render(t){let dtr=Math.min(.1,t-lastR);lastR=t;if(follow){cam.tx=follow
    else{p.x+=Math.sin(t*.7+p.p)*20*dtr*K;p.y+=Math.cos(t*.5+p.p)*14*dtr*K;g.globalAlpha=.4+.6*Math.abs(Math.sin(t*2+p.p));g.arc(p.x,p.y,2.5*K,0,7);g.fill();g.globalAlpha=1}
    if(p.y>CH)p.y=-10;if(p.y<0&&mode=='f')p.y=CH;if(p.x<0)p.x=CW;if(p.x>CW)p.x=0})}
  if(wx=='fog'){g.fillStyle=`rgba(236,242,247,${.38+Math.sin(t*.4)*.06})`;g.fillRect(0,0,CW,CH)}
- // speech/thought bubbles + current activity of the inspected NPC
  if(cam.z>.7){let k=0;g.font=`bold ${12*K}px system-ui`;g.textAlign='center';
   for(const n of vis){let tx=n.bub&&k<24?n.bub.t:n===sl?n.act:null;if(!tx)continue;k++;let px=ox+n.x*s,py=oy+(n.y-.6)*s,w=g.measureText(tx).width+12*K,th=n.bub&&n.bub.th;
    g.fillStyle='rgba(255,255,255,.95)';g.beginPath();g.roundRect(px-w/2,py-26*K,w,20*K,8*K);g.fill();g.beginPath();
    if(th){g.arc(px,py-2*K,3*K,0,7);g.arc(px+4*K,py-9*K,2*K,0,7)}else{g.moveTo(px-4*K,py-6*K);g.lineTo(px+4*K,py-6*K);g.lineTo(px,py)}g.fill();g.fillStyle='#4a3b52';g.fillText(tx,px,py-12*K)}}}
 
-/* --- MINIMAP: whole map, buildings, folk and camera rectangle --- */
 function minimap(){for(let i=0;i<N*N;i++){mg.fillStyle=rd[i]?'#c9a77a':bg[i]?'#e86a9a':tc[i];mg.fillRect(i%N,i/N|0,1,1)}
  mg.fillStyle='#fff';npcs.forEach(n=>{if(!n.in||n.in.o)mg.fillRect(n.x|0,n.y|0,1,1)});
  let w=CW/(T*cam.z*K),h=CH/(T*cam.z*K);mg.strokeStyle='#fff';mg.lineWidth=.8;mg.strokeRect(cam.x-w/2,cam.y-h/2,w,h)}
 const mgo=e=>{let r=mm.getBoundingClientRect();follow=null;cam.tx=(e.clientX-r.left)/r.width*N;cam.ty=(e.clientY-r.top)/r.height*N};
 mm.onpointerdown=e=>{mm.setPointerCapture(e.pointerId);mgo(e)};mm.onpointermove=e=>{if(e.buttons)mgo(e)};
 
-/* --- INPUT: drag to pan, wheel/pinch to zoom, tap to build or inspect --- */
 const Pt=new Map();let moved=0;const zoom=f=>cam.tz=clamp(cam.tz*f,.35,2.6);
 cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);Pt.set(e.pointerId,[e.clientX,e.clientY]);moved=0};
 cv.onpointermove=e=>{let o=Pt.get(e.pointerId);if(!o)return;let n=[e.clientX,e.clientY];
@@ -238,7 +227,6 @@ function tap(sx,sy){let[wx_,wy]=w2(sx,sy),X=wx_|0,Y=wy|0;if(X<0||Y<0||X>=N||Y>=N
  let n=npcs.find(n=>(!n.in||n.in.o)&&Math.hypot(n.x-wx_,n.y-.3-wy)<.5);
  if(n){view={t:'npc',o:n};follow=n}else if(bg[Y*N+X])view={t:'bld',o:bg[Y*N+X]};else{view=null;follow=null}refresh();hintUI()}
 
-/* --- UI PANELS --- */
 const bar=v=>`<span class="b"><i style="width:${clamp(v,0,100)}%"></i></span>`,toast=(m,ms=2600)=>{let t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.opacity=0,ms)};
 const prod=(b,st)=>'fwsgc'.split('').filter(r=>b[r]).map(r=>(b[r]>0?'+':'')+(+(b[r]*st).toFixed(1))+IC[r]).join(' ');
 function vBuild(){return'<div class="ch">'+['Home','Work','Joy','Magic','Path'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+CAT.filter(b=>b.cat==cat).map(b=>{let l=b.u>npcs.length;return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${l?'🔒 pop '+b.u:cost(b)}</small></button>`}).join('')+'</div>'}
@@ -251,19 +239,22 @@ function vNpc(n){let f=Object.entries(n.fr).sort((a,b)=>b[1]-a[1]).slice(0,4).ma
  return`<div class="nh"><span class="pt" style="background:${PERS[n.pers][1]}">${PERS[n.pers][0]}</span><div><b>${n.name}</b>, ${n.age}<br><small>${n.work?n.work.n+' worker':'Wanderer'} · ${n.pers}</small></div><button data-a="close">✕</button></div>
  😊 ${bar(n.hap)} ⚡ ${bar(n.en)} 🪙${n.wealth|0}<br>Now: <b>${n.act}</b><br>🏠 ${n.home?n.home.n:'Homeless'} · 💼 ${n.work?n.work.n:'No job'}<br>Friends: ${f}<br><small>Day: wake 6 · work 7–12, 13–17 · lunch 12 · free time likes ${LV[n.pers].join(', ')} · sleep 22</small>`}
 function vBld(b){let st=b.job?Math.min(1,b.wk.length/b.job):1,p=prod(b,st);
- return`<div class="nh"><span class="pt">${b.e}</span><div><b>${b.n}</b><br><small>${b.cat}</small></div><button data-a="close">✕</button></div>`+(b.job?`👷 Workers ${b.wk.length}/${b.job}: ${b.wk.map(n=>n.name).join(', ')||'none'}<br>`:'')+(b.home?`🏠 Residents ${b.res.length}/${b.home}: ${b.res.map(n=>n.name).join(', ')||'none'}<br>`:'')+
+ return`<div class="nh"><span class="pt">${b.e}</span><div><b>${b.n}</b><br><small>${b.cat}</small></div><button data-a="close">✕</button></div>`+
+ `❤️ Health: ${b.hp|0}/${b.mhp} ${b.hp<b.mhp?`<button data-a="repair:${bl.indexOf(b)}">Repair (🪙${REPAIR_COST_G} 🪵${REPAIR_COST_W})</button>`:''}<br>`+
+ (b.job?`👷 Workers ${b.wk.length}/${b.job}: ${b.wk.map(n=>n.name).join(', ')||'none'}<br>`:'')+(b.home?`🏠 Residents ${b.res.length}/${b.home}: ${b.res.map(n=>n.name).join(', ')||'none'}<br>`:'')+
  (p?`Per day: ${p} (negative = consumed)<br>`:'')+(b.hap?`😊 +${b.hap} to homes within 8 tiles<br>`:'')+(b.bea?`🌸 Beauty +${b.bea} `:'')+(b.mag?`🔮 Magic +${b.mag} `:'')+(b.tou?`🧳 Tourism +${b.tou}`:'')+upgBtn(b)}
 function refresh(){if(!view){sheet.hidden=true;return}let st=sheet.scrollTop;sheet.hidden=false;sheet.innerHTML=({build:vBuild2,trade:vTrade,hero:vHero,stats:vStats,folk:vFolk,quests:vQ,npc:()=>vNpc(view.o),bld:()=>vBld(view.o)})[view.t]();sheet.scrollTop=st}
 function hintUI(){let h=$('hint');h.hidden=!tool;if(tool)h.innerHTML=tool in TF?`${TF[tool][0]} ${TF[tool][1]} (${cost({$:TF[tool][4]})}) · tap a green tile · tap here to stop`:tool=='X'?'🧹 Tap a building or road to remove it · tap here to stop':`Placing ${BK[tool].e} ${BK[tool].n} (${cost(BK[tool])}) · tap here to stop`;
  document.querySelectorAll('[data-a^=spd]').forEach(b=>b.classList.toggle('on',b.dataset.a=='spd:'+spd))}
 document.onclick=e=>{let a=e.target.closest('[data-a]');if(!a)return;let[c,v]=a.dataset.a.split(':');
  if(c=='tab'){view=view&&view.t==v?null:{t:v};tool=null;follow=null}else if(c=='cat')cat=v;else if(c=='pick'){tool=v;view=null;vm=null}else if(c=='buy'||c=='sell')trade(c,v);else if(c=='spd')spd=+v;
- else if(c=='close'){view=null;follow=null}else if(c=='npc'){let n=NM.get(+v);view={t:'npc',o:n};follow=n}else if(c=='save')save();else if(c=='cancel')tool=null;
+ else if(c=='close'){view=null;follow=null}else if(c=='npc'){let n=NM.get(+v);view={t:'npc',o:n};follow=n}else if(c=='repair'){repairBuilding(bl[+v])}else if(c=='save')save();else if(c=='cancel')tool=null;
  else if(c=='new'){if(newArm){localStorage.removeItem('fh1');newArm=0;init();view=null}else{newArm=1;toast('Tap “New town” again to confirm')}}
  hintUI();refresh()};
-function ui(){let bd=bl.reduce((a,b)=>a+(b.home||0),0),fb=bd-npcs.length;$('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛏️'+fb+' free':'🏠 FULL, build homes'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
+function ui(){let bd=bl.reduce((a,b)=>a+(b.home||0),0),fb=bd-npcs.length;
+ let portalInfo='';if(typeof portalState!=='undefined'&&gate()){portalInfo=` · 👹Monsters:${portalState.mons} ⏱️Raid:${Math.ceil(portalState.raidTime)}s`;}
+ $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank}${portalInfo} · ${fb>0?'🛏️'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
 
-/* --- MAIN LOOP --- */
 let last=performance.now();
 function loop(now){let dt=Math.min(.1,(now-last)/1000);last=now;if(spd){let sd=dt*spd;tm+=sd*.2;if(tm>=24){tm-=24;newDay()}sim(sd)}render(now/1000);requestAnimationFrame(loop)}
 let sv=null;try{sv=JSON.parse(localStorage.getItem('fh1'))}catch(e){}
@@ -273,5 +264,4 @@ setInterval(ui,250);setInterval(minimap,300);
 setInterval(()=>{calc();quest();if(view&&['npc','bld','stats','quests'].includes(view.t))refresh()},1000);
 setInterval(save,30000);
 requestAnimationFrame(loop);
-/* boot self-check: warns if a module file did not load (all src/*.js must sit next to index.html) */
 setTimeout(()=>{let m=[['hero.js',typeof stat],['items.js',typeof rollItem],['dungeon.js',typeof dFrame],['boss.js',typeof spawnBoss],['town-link.js',typeof vHero],['housing.js',typeof housingInfo]].filter(x=>x[1]=='undefined').map(x=>x[0]);if(m.length)toast('⚠️ Missing '+m.join(', ')+'. Keep every file of the src/ folder next to index.html',15000)},1500);
