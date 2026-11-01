@@ -1,5 +1,4 @@
-/* core.js — town simulation: grid, buildings, NPCs, economy, rendering, input, UI panels
- Load order: 1st */
+/* core.js — town simulation */
 "use strict";
 const N=50,T=32,$=i=>document.getElementById(i),cv=$('c'),g=cv.getContext('2d'),mm=$('mm'),mg=mm.getContext('2d'),sheet=$('sheet'),
 clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),R=(a,b)=>a+Math.random()*(b-a),pk=a=>a[Math.random()*a.length|0];
@@ -142,4 +141,136 @@ function thought(n){return n.hap<35?pk(['I’m so unhappy…','This town needs m
 function checkTownHall(){
   if(townHallDestroyed) return;
   let th = bl.find(b=>b.k=='townhall');
-  if(bl.
+  if(bl.length>0 && !th){
+    townHallDestroyed=1;
+    toast('💀 GAME OVER: The Town Hall has been destroyed!', 10000);
+    spd=0;
+  }
+}
+
+function newDay(){D++;let s=season(),d=(D-1)%8+1,mul=[1,1.3,1.5,.4][s];
+ for(const b of bl){let st=b.job?Math.min(1,b.wk.length/b.job):0;if(!st)continue;let ds={},ok=1;for(const r of'fwsgc'){let v=(b[r]||0)*st*(1+.5*((b.lv||1)-1));if(r=='f'&&v>0)v*=mul;if(v<0&&res[r]+v<0)ok=0;ds[r]=v}if(ok)for(const r in ds)res[r]+=ds[r]}
+ let emp=npcs.filter(n=>n.work).length;res.g+=emp*3+M.tou*.3*[1.2,1.3,1,.7][s];res.f-=npcs.length*.35;if(res.g<40){res.g+=40;toast('🎒 Travelers left tips: +40 🪙')}hungry=0;if(res.f<0){res.f=0;hungry=1}
+ fest=d==3?FN[s]:d==6&&s<2?'Crystal Fair':'';if(fest){res.g+=20+M.tou*2;toast('🎉 '+fest+' today from 3 pm!',4000)}
+ npcs.forEach(n=>{let t=50;if(n.home){t+=10;let a=0;for(const b of bl)if(b.hap&&Math.abs(b.x-n.home.x)+Math.abs(b.y-n.home.y)<=8)a+=b.hap;t+=Math.min(25,a)}else t-=20;
+  t+=n.work?6:-6;t+=hungry?-25:6;if(n.pers=='Cheerful')t+=6;if(n.pers=='Ambitious')t+=n.work?6:-6;if(n.pers=='Artistic')t+=M.bea/10;if(n.pers=='Bookish')t+=M.mag/10;if(wx=='rain')t-=3;
+  n.hap+=(clamp(t,0,100)-n.hap)*.5;n.wealth=Math.max(0,n.wealth+(n.work?5:0)-2)});
+ let free=bl.reduce((a,b)=>a+(b.home||0),0)-npcs.length;
+ if(free>0&&M.hap>35&&res.f>5){let k=Math.min(free,1+(M.tou/20|0)+(npcs.length/30|0));for(let i=0;i<k;i++){let hs=bl.filter(b=>b.home&&b.res.length<b.home);if(hs.length){let h=pk(hs),n=spawn(h);h.res.push(n)}}toast('🧳 New neighbors arrived!')}
+ assign();paint();if(D%8==1)toast('Season: '+SN[s])}
+function calc(){cnt={};bl.forEach(b=>cnt[b.k]=(cnt[b.k]||0)+1);cnt.road=rd.reduce((a,v)=>a+(v?1:0),0);
+ let p=npcs.length,e=npcs.filter(n=>n.work).length,sum=k=>bl.reduce((a,b)=>a+(b[k]||0),0);
+ M={pop:p,hap:p?npcs.reduce((a,n)=>a+n.hap,0)/p:50,pro:Math.min(100,(p?e/p*40:0)+Math.min(40,bl.filter(b=>b.g>0).length*4)+Math.min(20,npcs.reduce((a,n)=>a+n.wealth,0)/Math.max(1,p)/5)),bea:Math.min(100,sum('bea')*1.5),mag:Math.min(100,sum('mag')*3),tou:Math.min(100,sum('tou')*3)};
+ M.rank=p>=500&&M.hap>=90&&M.pro>=90&&M.bea>=90?'Magical Kingdom':p>=150?'City':p>=50?'Town':p>=15?'Hamlet':'Village';
+ if(M.rank=='Magical Kingdom'&&!won){won=1;toast('👑 Magical Kingdom achieved! You win!',9000)}
+ checkTownHall()}
+function quest(){quests=quests.filter(q=>{let[k,n]=QT[q.t];if((cnt[k]||0)<n)return 1;let gd=70+n*12,c=k=='wizard'||k=='theater'?2:0;res.g+=gd;res.c+=c;npcs.forEach(p=>p.hap=Math.min(100,p.hap+6));done.push(q.t);toast(`✅ ${q.who}’s request done! +🪙${gd}${c?' +💎'+c:''}`);return 0});if(done.length>=QT.length)done=[];qgen()}
+function qgen(){let c=QT.map((_,i)=>i).filter(i=>!done.includes(i)&&!quests.some(q=>q.t==i)&&(cnt[QT[i][0]]||0)<QT[i][1]);while(quests.length<3&&c.length)quests.push({t:c.splice(Math.random()*c.length|0,1)[0],who:npcs.length?pk(npcs).name:'A traveler'})}
+function roll(){let w=[[.5,.3,.2,0],[.75,.2,.05,0],[.4,.3,.3,0],[.3,0,.2,.5]][season()],r=Math.random(),a=0;wx=['sun','rain','fog','snow'][Math.max(0,w.findIndex(v=>(a+=v)>=r))];wxT=R(3,9)}
+function sim(sd){fr++;let h=tm|0;for(const n of npcs){upd(n,sd);if((n.id+fr)%15==0&&n.slot!==h){n.slot=h;plan(n,h)}}
+ if((ac.s+=sd)>.7){ac.s=0;social()}if((ac.t+=sd)>9&&npcs.length){ac.t=0;let n=pk(npcs);if(!n.in||n.in.o)say(n,'💭 '+thought(n),1)}if((wxT-=sd*.2)<=0)roll()}
+
+function repairBuilding(b){if(!b)return;let missing=b.mhp-b.hp;if(missing<=0)return toast('Building is at full health');if(res.g<REPAIR_COST_G||res.w<REPAIR_COST_W)return toast(`Need 🪙${REPAIR_COST_G} 🪵${REPAIR_COST_W} to repair`);res.g-=REPAIR_COST_G;res.w-=REPAIR_COST_W;b.hp=b.mhp;toast('Repaired '+b.n);calc();refresh()}
+
+function save(){try{let ix=new Map(bl.map((b,i)=>[b,i]));localStorage.setItem('fh1',JSON.stringify({S:S0,tf:ter.map((t,i)=>t!=ter0[i]?[i,t]:0).filter(Boolean),res,H:tm,D,rd:Array.from(rd),bl:bl.map(b=>[b.k,b.x,b.y,b.hp]),nid,q:quests,done,
+ np:npcs.map(n=>({id:n.id,name:n.name,age:n.age,pers:n.pers,hap:n.hap,en:n.en,wealth:n.wealth,fr:n.fr,h:ix.has(n.home)?ix.get(n.home):-1,w:ix.has(n.work)?ix.get(n.work):-1}))}));toast('Saved 💾')}catch(e){toast('Saving is unavailable here')}
+}
+function init(sv){S0=sv?sv.S:Math.random()*1e9|0;gen();ter0=ter.slice();if(sv&&sv.tf)sv.tf.forEach(([i,t])=>ter[i]=t);vm=null;rd=new Uint8Array(N*N);bg=new Array(N*N).fill(null);bl=[];npcs=[];NM=new Map();nid=0;done=[];quests=[];fest='';wx='sun';wxT=5;follow=null;
+ if(sv){res=sv.res;tm=sv.H;D=sv.D;rd=Uint8Array.from(sv.rd);sv.bl.forEach(([k,x,y,hp])=>{let b=put(k,x,y);if(b&&hp!==undefined)b.hp=hp;});sv.np.forEach(o=>{let h=bl[o.h]||null;let n=spawn(h,o);n.home=h;n.work=bl[o.w]||null});nid=sv.nid;done=sv.done||[];quests=sv.q||[]}
+ else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[25,25,'townhall'],[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
+ paint();assign();calc();qgen()}
+
+function rs(){K=Math.min(devicePixelRatio||1,2);cv.width=CW=innerWidth*K|0;cv.height=CH=innerHeight*K|0;if(!cam.tz)cam.z=cam.tz=clamp(innerWidth/(13*T),.5,2)}
+const w2=(sx,sy)=>{let s=T*cam.z*K;return[(sx*K-CW/2)/s+cam.x,(sy*K-CH/2)/s+cam.y]};
+function render(t){let dtr=Math.min(.1,t-lastR);lastR=t;if(follow){cam.tx=follow.x;cam.ty=follow.y}
+ cam.tx=clamp(cam.tx,0,N);cam.ty=clamp(cam.ty,0,N);cam.x+=(cam.tx-cam.x)*.15;cam.y+=(cam.ty-cam.y)*.15;cam.z+=(cam.tz-cam.z)*.2;
+ const s=T*cam.z*K,ox=CW/2-cam.x*s,oy=CH/2-cam.y*s,se=season();
+ g.setTransform(1,0,0,1,0,0);g.fillStyle='#bfe0e8';g.fillRect(0,0,CW,CH);g.setTransform(s,0,0,s,ox,oy);
+ let x0=Math.max(0,Math.floor(-ox/s)),x1=Math.min(N-1,Math.floor((CW-ox)/s)),y0=Math.max(0,Math.floor(-oy/s)),y1=Math.min(N-1,Math.floor((CH-oy)/s));
+ for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){g.fillStyle=tc[y*N+x];g.fillRect(x,y,1.02,1.02)}
+ for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){let i=y*N+x,tt=ter[i];
+  if(tt==3||tt==4){g.fillStyle='rgba(255,255,255,.3)';g.fillRect(x+.15,y+.45+Math.sin(t*2+x*.9+y)*.2,.7,.07)}
+  if(rd[i]){g.fillStyle=rd[i]==1?'#ead2ab':rd[i]==2?'#cfcad9':'#bf9466';g.fillRect(x+.04,y+.04,.92,.92);if(rd[i]==3){g.fillStyle='#8b6440';g.fillRect(x,y+.3,1,.05);g.fillRect(x,y+.65,1,.05)}}
+  else if(!bg[i]){let sw=Math.sin(t*1.6+x*.7+y*.4)*.04;
+   if(tt==1)g.drawImage(spr(TR[se]),x+sw-.05,y-.15,1.1,1.1);else if(tt==5)g.drawImage(spr(FL[se]),x+.2+sw,y+.25,.6,.6);
+   else if(tt==2)g.drawImage(spr('⛰️'),x,y-.05,1,1);else if(tt==6)g.drawImage(spr('💎'),x+.1,y+.1+Math.sin(t*2+x)*.05,.8,.8)}}
+ for(const b of bl){if(b.x<x0||b.x>x1||b.y<y0||b.y>y1)continue;if(!b.d){g.fillStyle=CC[b.cat];g.beginPath();g.roundRect(b.x+.04,b.y+.04,.92,.92,.2);g.fill()}g.drawImage(spr(b.e),b.x+.02,b.y-.1,.96,.96);
+  if(b.hp!==undefined&&b.hp<b.mhp){let bw=.8,bx=b.x+0.1,by=b.y-0.15;g.fillStyle='#0008';g.fillRect(bx,by,bw,.08);g.fillStyle='#e33';g.fillRect(bx,by,bw*Math.max(0,b.hp/b.mhp),.14)}}
+ if(tool&&tool!='X'&&(tool in TF||BK[tool].ln||BK[tool].r==3)){if(!vm){vm=new Uint8Array(N*N);for(let i=0;i<N*N;i++)vm[i]=can(tool,i%N,i/N|0)?1:0}g.fillStyle=`rgba(110,255,150,${.3+Math.sin(t*4)*.1})`;for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(vm[y*N+x])g.fillRect(x+.06,y+.06,.88,.88)}
+ let vis=npcs.filter(n=>(!n.in||n.in.o)&&n.x>x0-1&&n.x<x1+2&&n.y>y0-1&&n.y<y1+2).sort((a,b)=>a.y-b.y),sl=view&&view.t=='npc'?view.o:null;
+ for(const n of vis){let bob=n.path.length?Math.abs(Math.sin(t*9+n.id))*.06:0;g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(n.x,n.y+.02,.17,.07,0,0,7);g.fill();
+  g.fillStyle=PERS[n.pers][1];g.beginPath();g.arc(n.x,n.y-.12-bob,.15,0,7);g.fill();g.drawImage(spr(PERS[n.pers][0]),n.x-.2,n.y-.5-bob,.4,.4);
+  if(n===sl){g.strokeStyle='#fff';g.lineWidth=.05;g.beginPath();g.ellipse(n.x,n.y,.3,.14,0,0,7);g.stroke()}}
+ g.setTransform(1,0,0,1,0,0);
+ let night=clamp((Math.abs(tm-12)-6)/4,0,1)*.5;if(night>0){g.fillStyle=`rgba(25,25,80,${night})`;g.fillRect(0,0,CW,CH);
+  g.setTransform(s,0,0,s,ox,oy);g.globalCompositeOperation='lighter';g.fillStyle=`rgba(255,200,90,${night*.5})`;
+  for(const b of bl)if(b.k=='lantern'||b.k=='tavern'||b.k=='inn'||b.k=='festival'){g.beginPath();g.arc(b.x+.5,b.y+.5,b.d?.9:1.2,0,7);g.fill()}
+  g.globalCompositeOperation='source-over';g.setTransform(1,0,0,1,0,0)}
+ let mode=wx=='rain'?'r':wx=='snow'?'s':night>.15?'f':'';
+ if(mode){g.fillStyle=g.strokeStyle=mode=='r'?'rgba(120,160,230,.7)':mode=='s'?'#fff':'#ffe98a';g.lineWidth=K;
+  PS.forEach((p,i)=>{if(mode=='f'&&i>40)return;g.beginPath();
+   if(mode=='r'){p.y+=900*dtr*K;p.x-=120*dtr*K;g.moveTo(p.x,p.y);g.lineTo(p.x+4*K,p.y-14*K);g.stroke()}
+   else if(mode=='s'){p.y+=60*dtr*K*(.5+p.v);p.x+=Math.sin(t+p.p)*20*dtr*K;g.arc(p.x,p.y,(2+p.v*2)*K,0,7);g.fill()}
+   else{p.x+=Math.sin(t*.7+p.p)*20*dtr*K;p.y+=Math.cos(t*.5+p.p)*14*dtr*K;g.globalAlpha=.4+.6*Math.abs(Math.sin(t*2+p.p));g.arc(p.x,p.y,2.5*K,0,7);g.fill();g.globalAlpha=1}
+   if(p.y>CH)p.y=-10;if(p.y<0&&mode=='f')p.y=CH;if(p.x<0)p.x=CW;if(p.x>CW)p.x=0})}
+ if(wx=='fog'){g.fillStyle=`rgba(236,242,247,${.38+Math.sin(t*.4)*.06})`;g.fillRect(0,0,CW,CH)}
+ if(cam.z>.7){let k=0;g.font=`bold ${12*K}px system-ui`;g.textAlign='center';
+  for(const n of vis){let tx=n.bub&&k<24?n.bub.t:n===sl?n.act:null;if(!tx)continue;k++;let px=ox+n.x*s,py=oy+(n.y-.6)*s,w=g.measureText(tx).width+12*K,th=n.bub&&n.bub.th;
+   g.fillStyle='rgba(255,255,255,.95)';g.beginPath();g.roundRect(px-w/2,py-26*K,w,20*K,8*K);g.fill();g.beginPath();
+   if(th){g.arc(px,py-2*K,3*K,0,7);g.arc(px+4*K,py-9*K,2*K,0,7)}else{g.moveTo(px-4*K,py-6*K);g.lineTo(px+4*K,py-6*K);g.lineTo(px,py)}g.fill();g.fillStyle='#4a3b52';g.fillText(tx,px,py-12*K)}}}
+
+function minimap(){for(let i=0;i<N*N;i++){mg.fillStyle=rd[i]?'#c9a77a':bg[i]?'#e86a9a':tc[i];mg.fillRect(i%N,i/N|0,1,1)}
+ mg.fillStyle='#fff';npcs.forEach(n=>{if(!n.in||n.in.o)mg.fillRect(n.x|0,n.y|0,1,1)});
+ let w=CW/(T*cam.z*K),h=CH/(T*cam.z*K);mg.strokeStyle='#fff';mg.lineWidth=.8;mg.strokeRect(cam.x-w/2,cam.y-h/2,w,h)}
+const mgo=e=>{let r=mm.getBoundingClientRect();follow=null;cam.tx=(e.clientX-r.left)/r.width*N;cam.ty=(e.clientY-r.top)/r.height*N};
+mm.onpointerdown=e=>{mm.setPointerCapture(e.pointerId);mgo(e)};mm.onpointermove=e=>{if(e.buttons)mgo(e)};
+
+const Pt=new Map();let moved=0;const zoom=f=>cam.tz=clamp(cam.tz*f,.35,2.6);
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);Pt.set(e.pointerId,[e.clientX,e.clientY]);moved=0};
+cv.onpointermove=e=>{let o=Pt.get(e.pointerId);if(!o)return;let n=[e.clientX,e.clientY];
+ if(Pt.size==2){let q=[...Pt.entries()].find(([k])=>k!=e.pointerId)[1];zoom(Math.hypot(n[0]-q[0],n[1]-q[1])/Math.max(1,Math.hypot(o[0]-q[0],o[1]-q[1])))}
+ else{cam.x=cam.tx-=(n[0]-o[0])/(T*cam.z);cam.y=cam.ty-=(n[1]-o[1])/(T*cam.z);if(moved>8)follow=null}
+ moved+=Math.abs(n[0]-o[0])+Math.abs(n[1]-o[1]);Pt.set(e.pointerId,n)};
+cv.onpointerup=cv.onpointercancel=e=>{Pt.delete(e.pointerId);if(moved<8&&!Pt.size)tap(e.clientX,e.clientY)};
+cv.onwheel=e=>{e.preventDefault();zoom(e.deltaY<0?1.12:.89)};
+function tap(sx,sy){let[wx_,wy]=w2(sx,sy),X=wx_|0,Y=wy|0;if(X<0||Y<0||X>=N||Y>=N||wx_<0||wy<0)return;
+ if(tool){tool=='X'?demolish(X,Y):tool in TF?terra(tool,X,Y):place(tool,X,Y);vm=null;return}
+ let n=npcs.find(n=>(!n.in||n.in.o)&&Math.hypot(n.x-wx_,n.y-.3-wy)<.5);
+ if(n){view={t:'npc',o:n};follow=n}else if(bg[Y*N+X])view={t:'bld',o:bg[Y*N+X]};else{view=null;follow=null}refresh();hintUI()}
+
+const bar=v=>`<span class="b"><i style="width:${clamp(v,0,100)}%"></i></span>`,toast=(m,ms=2600)=>{let t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.opacity=0,ms)};
+const prod=(b,st)=>'fwsgc'.split('').filter(r=>b[r]).map(r=>(b[r]>0?'+':'')+(+(b[r]*st).toFixed(1))+IC[r]).join(' ');
+function vBuild(){return'<div class="ch">'+['Home','Work','Joy','Magic','Path'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+CAT.filter(b=>b.cat==cat).map(b=>{let l=b.u>npcs.length;return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${l?'🔒 pop '+b.u:cost(b)}</small></button>`}).join('')+'</div>'}
+function vStats(){const row=(l,v)=>`<div class="r">${l} ${bar(v)} ${v|0}</div>`;
+ return`<b>${M.rank}</b> · goal: 👥500, 😊90, 💰90, 🌸90`+row('😊 Happiness',M.hap)+row('💰 Prosperity',M.pro)+row('🌸 Beauty',M.bea)+row('🔮 Magic',M.mag)+row('🧳 Tourism',M.tou)+
+ `<div class="r">👥 ${npcs.length}/500 · 🏠 beds ${bl.reduce((a,b)=>a+(b.home||0),0)} · 💼 jobs ${npcs.filter(n=>n.work).length}/${bl.reduce((a,b)=>a+(b.job||0),0)}</div><div class="cr"><button data-a="save">💾 Save</button><button data-a="new">🆕 New town</button></div>`}
+function vFolk(){return`<b>Residents (${npcs.length})</b><div class="lst">`+npcs.slice().sort((a,b)=>a.name<b.name?-1:1).slice(0,80).map(n=>`<div data-a="npc:${n.id}">${PERS[n.pers][0]} <b>${n.name}</b><span>${n.hap|0}%</span><small>${n.work?n.work.n:'No job'}: ${n.act}</small></div>`).join('')+'</div>'}
+function vQ(){return'<b>📜 Requests</b>'+(quests.map(q=>{let[k,n,t]=QT[q.t];return`<div class="q">💬 <b>${q.who}</b>: ${t}<br><small>${Math.min(cnt[k]||0,n)}/${n} · 🪙${70+n*12}${k=='wizard'||k=='theater'?' 💎2':''} +😊</small></div>`}).join('')||'<div>No requests right now.</div>')}
+function vNpc(n){let f=Object.entries(n.fr).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([i,v])=>{let o=NM.get(+i);return o?o.name+(v>60?' 💖':v>30?' 💕':' 🙂'):''}).join(', ')||'None yet';
+ return`<div class="nh"><span class="pt" style="background:${PERS[n.pers][1]}">${PERS[n.pers][0]}</span><div><b>${n.name}</b>, ${n.age}<br><small>${n.work?n.work.n+' worker':'Wanderer'} · ${n.pers}</small></div><button data-a="close">✕</button></div>
+ 😊 ${bar(n.hap)} ⚡ ${bar(n.en)} 🪙${n.wealth|0}<br>Now: <b>${n.act}</b><br>🏠 ${n.home?n.home.n:'Homeless'} · 💼 ${n.work?n.work.n:'No job'}<br>Friends: ${f}<br><small>Day: wake 6 · work 7–12, 13–17 · lunch 12 · free time likes ${LV[n.pers].join(', ')} · sleep 22</small>`}
+function vBld(b){let st=b.job?Math.min(1,b.wk.length/b.job):1,p=prod(b,st);
+ return`<div class="nh"><span class="pt">${b.e}</span><div><b>${b.n}</b><br><small>${b.cat}</small></div><button data-a="close">✕</button></div>`+
+ `❤️ Health: ${b.hp|0}/${b.mhp} ${b.hp<b.mhp?`<button data-a="repair:${bl.indexOf(b)}">Repair (🪙${REPAIR_COST_G} 🪵${REPAIR_COST_W})</button>`:''}<br>`+
+ (b.job?`👷 Workers ${b.wk.length}/${b.job}: ${b.wk.map(n=>n.name).join(', ')||'none'}<br>`:'')+(b.home?`🏠 Residents ${b.res.length}/${b.home}: ${b.res.map(n=>n.name).join(', ')||'none'}<br>`:'')+
+ (p?`Per day: ${p} (negative = consumed)<br>`:'')+(b.hap?`😊 +${b.hap} to homes within 8 tiles<br>`:'')+(b.bea?`🌸 Beauty +${b.bea} `:'')+(b.mag?`🔮 Magic +${b.mag} `:'')+(b.tou?`🧳 Tourism +${b.tou}`:'')+upgBtn(b)}
+function refresh(){if(!view){sheet.hidden=true;return}let st=sheet.scrollTop;sheet.hidden=false;sheet.innerHTML=({build:vBuild2,trade:vTrade,hero:vHero,stats:vStats,folk:vFolk,quests:vQ,npc:()=>vNpc(view.o),bld:()=>vBld(view.o)})[view.t]();sheet.scrollTop=st}
+function hintUI(){let h=$('hint');h.hidden=!tool;if(tool)h.innerHTML=tool in TF?`${TF[tool][0]} ${TF[tool][1]} (${cost({$:TF[tool][4]})}) · tap a green tile · tap here to stop`:tool=='X'?'🧹 Tap a building or road to remove it · tap here to stop':`Placing ${BK[tool].e} ${BK[tool].n} (${cost(BK[tool])}) · tap here to stop`;
+ document.querySelectorAll('[data-a^=spd]').forEach(b=>b.classList.toggle('on',b.dataset.a=='spd:'+spd))}
+document.onclick=e=>{let a=e.target.closest('[data-a]');if(!a)return;let[c,v]=a.dataset.a.split(':');
+ if(c=='tab'){view=view&&view.t==v?null:{t:v};tool=null;follow=null}else if(c=='cat')cat=v;else if(c=='pick'){tool=v;view=null;vm=null}else if(c=='buy'||c=='sell')trade(c,v);else if(c=='spd')spd=+v;
+ else if(c=='close'){view=null;follow=null}else if(c=='npc'){let n=NM.get(+v);view={t:'npc',o:n};follow=n}else if(c=='repair'){repairBuilding(bl[+v])}else if(c=='save')save();else if(c=='cancel')tool=null;
+ else if(c=='new'){if(newArm){localStorage.removeItem('fh1');newArm=0;init();view=null}else{newArm=1;toast('Tap “New town” again to confirm')}}
+ hintUI();refresh()};
+function ui(){let bd=bl.reduce((a,b)=>a+(b.home||0),0),fb=bd-npcs.length;
+ $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛏️'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
+
+let last=performance.now();
+function loop(now){let dt=Math.min(.1,(now-last)/1000);last=now;if(spd){let sd=dt*spd;tm+=sd*.2;if(tm>=24){tm-=24;newDay()}sim(sd)}render(now/1000);requestAnimationFrame(loop)}
+let sv=null;try{sv=JSON.parse(localStorage.getItem('fh1'))}catch(e){}
+try{init(sv)}catch(e){init()}
+addEventListener('resize',rs);rs();ui();hintUI();
+setInterval(ui,250);setInterval(minimap,300);
+setInterval(()=>{calc();quest();if(view&&['npc','bld','stats','quests'].includes(view.t))refresh()},1000);
+setInterval(save,30000);
+requestAnimationFrame(loop);
