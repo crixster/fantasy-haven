@@ -1,6 +1,7 @@
 # Fantasy Haven
 
-https://github.com/crixster/fantasy-haven/tree/main
+https://crixster.github.io/fantasy-haven/
+
 A mobile-first fantasy town builder with a hero, perma-death, and ARPG dungeon crawling (bosses, loot, tombstones).
 Plain JavaScript. No build step, no dependencies.
 
