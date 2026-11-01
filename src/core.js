@@ -74,16 +74,21 @@ TF={t_clear:['🪓','Clear Trees',[1],0,[10,0,0,0],'w',3],t_plant:['🌲','Plant
 PR={f:[3,1,10],w:[4,2,10],s:[6,3,10],c:[60,30,1]};
 const wat=(x,y)=>x>=0&&y>=0&&x<N&&y<N&&(ter[y*N+x]==3||ter[y*N+x]==4);
 function big(x,y){for(let a=x-2;a<=x;a++)for(let b=y-2;b<=y;b++){let k=1;for(let u=0;u<3&&k;u++)for(let v=0;v<3;v++)if(!wat(a+u,b+v)){k=0;break}if(k)return 1}return 0}
-const can=(k,x,y)=>k in TF?!bg[y*N+x]&&!rd[y*N+x]&&TF[k][2].includes(ter[y*N+x]):ok(k,x,y);
+const can=(k,x,y)=>{
+ if(k=='townhall' && (cnt.townhall||0)>=1) return 0;
+ return k in TF?!bg[y*N+x]&&!rd[y*N+x]&&TF[k][2].includes(ter[y*N+x]):ok(k,x,y);
+};
 function pay(c){if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return 0;res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];return 1}
 function terra(k,x,y){let t=TF[k],i=y*N+x;if(x<0||y<0||x>=N||y>=N)return;if(bg[i]||rd[i])return toast('Demolish what’s on this tile first');if(!t[2].includes(ter[i]))return toast('Doesn’t work on this land');if(!pay(t[4]))return toast('Not enough resources');ter[i]=t[3];if(t[5])res[t[5]]+=t[6];paint();calc()}
 function trade(a,r){let[b,s,n]=PR[r];if(a=='buy'){if(res.g<b*n)return toast('Not enough gold');res.g-=b*n;res[r]+=n}else{if(res[r]<n)return toast('Not enough '+IC[r]);res[r]-=n;res.g+=s*n}}
 function vTrade(){return'<b>💱 Traveling Merchant</b><div class="lst">'+Object.keys(PR).map(r=>{let[b,s,n]=PR[r];return`<div>${IC[r]} <b>${res[r]|0}</b><span><button data-a="buy:${r}">Buy ${n} · ${b*n}🪙</button><button data-a="sell:${r}">Sell ${n} · ${s*n}🪙</button></span></div>`}).join('')+'</div>'}
-function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=b.u>npcs.length;return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${l?'🔒 pop '+b.u:cost(b)}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
+function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=(b.u>npcs.length)||(b.k=='townhall'&&(cnt.townhall||0)>=1);return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${b.k=='townhall'&&(cnt.townhall||0)>=1?'🔒 Only 1 allowed':l?'🔒 pop '+b.u:cost(b)}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
  return'<div class="ch">'+['Home','Work','Joy','Magic','Path','Land'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+L.join('')+'</div>'}
-function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
+function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;if(k=='townhall'&&(cnt.townhall||0)>=1)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
-function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
+function place(k,x,y){
+ if(k=='townhall'&&(cnt.townhall||0)>=1)return toast('🏛️ Only one Town Hall can exist in the town!');
+ let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
  if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];
  let placedBld = put(k,x,y);assign();calc();
  if(typeof checkHeroHomeBuilt==='function') checkHeroHomeBuilt(placedBld);
@@ -135,7 +140,7 @@ function upd(n,dt){let sl=n.act=='Sleeping'&&n.in;n.en=clamp(n.en+(sl?9:-2.2)*dt
   if(d<=st){n.x=p[0]+.5;n.y=p[1]+.5;n.path.shift();if(!n.path.length)arrive(n)}else{n.x+=dx/d*st;n.y+=dy/d*st}}}
 function social(){let G=new Map();npcs.forEach(n=>{if(n.in&&!n.in.o)return;let k=(n.x|0)+','+(n.y|0);(G.get(k)||G.set(k,[]).get(k)).push(n)});
  G.forEach(a=>{if(a.length<2)return;let[u,v]=a;if(u.cd>0||v.cd>0)return;u.cd=v.cd=8;let o=(u.fr[v.id]||0)+R(2,6);u.fr[v.id]=o;v.fr[u.id]=(v.fr[u.id]||0)+R(2,6);
-  let h=o>60?'💖 ':o>30?'💕 ':'💬 ';say(u,h+pk(CHAT)+v.name+'!');say(v,h+'Hi '+u.name+'!');u.act='Chatting with '+v.name;v.act='Chatting with '+u.name})}
+  let h=o>60?'💖 ':o>30?'💕 ':'💬 ';say(u,h+pk(CHAT)+v.name+'!');say(v,h+'Hi '+u.name+'!');u.act='Chatting with '+v.name;v.act='Chatting with '+v.name})}
 function thought(n){return n.hap<35?pk(['I’m so unhappy…','This town needs more fun!']):!n.home?'I need a home…':!n.work?'I’d love a job.':res.f<8?'We’re running low on food!':!cnt.bakery?'A bakery would be lovely.':!cnt.park&&!cnt.garden?'Could we have a park?':M.mag<10?'A touch of magic would be nice.':pk(['What a cozy town!','I love living here.','The lanterns are pretty.'])}
 
 function checkTownHall(){
