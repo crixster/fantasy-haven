@@ -108,7 +108,7 @@ function enter(el){
  toast('Entering ' + EI[randEl] + ' Dungeon!');
 }
 
-function leave(){if(Math.hypot(dg.p.x-dg.ent.x,dg.p.y-dg.ent.y)>1.5)return toast('Walk back to the 🌀 to leave');let P=dg.pack;ens();RK.forEach(k=>res[k]=(res[k]||0)+P[k]);EL.forEach(e=>res.E[e]+=P.E[e]);P.it.forEach(i=>stash.push(i));HR.hp=stat(HR).mhp;HR.on=0;
+function leave(){if(Math.hypot(dg.p.x-dg.ent.x,dg.p.y-dg.ent.y)>1.5)return toast('Walk back to the 🌀 to leave');let P=dg.pack;ens();RK.forEach(k=>res[k]=(res[k]||0)+P[k]);EL.forEach(e=>res.E[e]+=P.E[e]);P.it.forEach(i=>stash.push(i));HR.hp=stat(HR).mhp;HR.on=1;placeHero();
  toast(`🧝 Home with 🪙${P.g} 🪵${P.w} 🪨${P.s} 🍞${P.f} 💎${P.c} 💠${P.gem}${P.it.length?' · '+P.it.length+' item(s)':''} + essences`,4500);dg=null;$('dg').hidden=true;view={t:'hero'};refresh();calc()}
 
 const tpos=G=>{for(let i=0;;i++){let x=G.x+[0,1,-1][i%3],y=G.y+1+(i/3|0);if(!tombs.some(t=>t.x==x&&t.y==y))return{x,y}}};
