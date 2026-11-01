@@ -1,11 +1,4 @@
-/* core.js — town simulation: grid, buildings, NPCs, economy, rendering, input, UI panels (the original game)
- Key globals used by the other modules:
-   world:  N (grid size) T (tile px) K (dpr) CW CH cam{x,y,tx,ty,z} bl (buildings) bg (building grid) ter rd npcs NM res (resources) cnt (building counts) spd sv (loaded save)
-   data:   CAT/BK (build catalog; BK[key]) TF (terrain tools) IC (resource icons)
-   state:  view ({t:'hero'|'bld'|...}) tool (placing building key) follow (camera target with x,y)
-   helpers: $ R(a,b) pk(arr) clamp spr(emoji) find(sx,sy,gx,gy)->path wander(n,r) w2(sx,sy)->world toast(msg,ms) calc() refresh() hintUI() ui()
-   engine (reassigned by town-link.js): render newDay save init tap
-   sheet panels: refresh() maps view.t -> vBuild2/vTrade/vHero/vStats/vFolk/vQ/vNpc/vBld; vHero and upgBtn come from town-link.js
+/* core.js — town simulation: grid, buildings, NPCs, economy, rendering, input, UI panels
  Load order: 1st */
 "use strict";
 const N=50,T=32,$=i=>document.getElementById(i),cv=$('c'),g=cv.getContext('2d'),mm=$('mm'),mg=mm.getContext('2d'),sheet=$('sheet'),
@@ -13,11 +6,12 @@ clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),R=(a,b)=>a+Math.random()*(b-a),pk=a=>a[
 
 const BLD_BASE_HP=100, REPAIR_COST_G=15, REPAIR_COST_W=10;
 
-const CAT=`cottage|🏠|Cottage|Home|40/10/0/0|home=2
+const CAT=`townhall|🏛️|Town Hall|Home|150/50/50/0|home=4,bea=3,g=8,u=0
+cottage|🏠|Cottage|Home|40/10/0/0|home=2
 family|🏡|Family House|Home|90/25/5/0|home=4
 noble|🏰|Noble Home|Home|220/20/40/0|home=3,bea=2,g=6,u=20
 inn|🛏️|Inn|Home|120/30/10/0|home=2,job=2,tou=2,g=5
-hero_home|⛺|Hero Home|Home|80/20/10/0|home=1,job=1
+hero_home|⛺|Hero Home|Home|100/30/20/0|home=1,job=1,u=10
 farm|🌾|Farm|Work|50/10/0/0|job=2,f=10,ln=gl
 orchard|🍎|Orchard|Work|70/15/0/0|job=2,f=7,g=2,bea=1,ln=gf
 bakery|🥖|Bakery|Work|100/20/10/0|job=2,f=-3,g=10
@@ -91,7 +85,7 @@ function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button da
 function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
 function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
- if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];put(k,x,y);assign();calc()}
+ if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];let placedBld = put(k,x,y);assign();calc();if(typeof checkHeroHomeBuilt==='function')checkHeroHomeBuilt(placedBld);}
 function demolish(x,y){let i=y*N+x,b=bg[i];if(b){b.dead=1;bl.splice(bl.indexOf(b),1);bg[i]=null;b.$.forEach((v,j)=>res['gwsc'[j]]+=v/2);assign()}else if(rd[i]){rd[i]=0;res.g+=1}calc()}
 const cost=b=>[b.$[0]&&'🪙'+b.$[0],b.$[1]&&'🪵'+b.$[1],b.$[2]&&'🪨'+b.$[2],b.$[3]&&'💎'+b.$[3]].filter(Boolean).join(' ');
 
@@ -137,10 +131,10 @@ function thought(n){return n.hap<35?pk(['I’m so unhappy…','This town needs m
 
 function checkTownHall(){
   if(townHallDestroyed) return;
-  let th = bl.find(b=>b.k=='hero_home'||b.k=='cottage'||b.k=='family'||b.k=='noble');
+  let th = bl.find(b=>b.k=='townhall');
   if(bl.length>0 && !th){
     townHallDestroyed=1;
-    toast('💀 GAME OVER: Town Center/Home destroyed!', 10000);
+    toast('💀 GAME OVER: The Town Hall has been destroyed!', 10000);
     spd=0;
   }
 }
@@ -174,7 +168,7 @@ function save(){try{let ix=new Map(bl.map((b,i)=>[b,i]));localStorage.setItem('f
 }
 function init(sv){S0=sv?sv.S:Math.random()*1e9|0;gen();ter0=ter.slice();if(sv&&sv.tf)sv.tf.forEach(([i,t])=>ter[i]=t);vm=null;rd=new Uint8Array(N*N);bg=new Array(N*N).fill(null);bl=[];npcs=[];NM=new Map();nid=0;done=[];quests=[];fest='';wx='sun';wxT=5;follow=null;
  if(sv){res=sv.res;tm=sv.H;D=sv.D;rd=Uint8Array.from(sv.rd);sv.bl.forEach(([k,x,y,hp])=>{let b=put(k,x,y);if(b&&hp!==undefined)b.hp=hp;});sv.np.forEach(o=>{let h=bl[o.h]||null;let n=spawn(h,o);n.home=h;n.work=bl[o.w]||null});nid=sv.nid;done=sv.done||[];quests=sv.q||[]}
- else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[25,25,'hero_home'],[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
+ else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[25,25,'townhall'],[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
  paint();assign();calc();qgen()}
 
 function rs(){K=Math.min(devicePixelRatio||1,2);cv.width=CW=innerWidth*K|0;cv.height=CH=innerHeight*K|0;if(!cam.tz)cam.z=cam.tz=clamp(innerWidth/(13*T),.5,2)}
