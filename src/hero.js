@@ -21,31 +21,84 @@ ens=()=>{res.gem=res.gem||0;res.E=res.E||{fire:0,water:0,earth:0,wind:0}},gate=(
 
 function gainXP(x){if(!HR)return;HR.xp+=Math.round(x*(1+stat(HR).xp/100));while(HR.xp>=30*HR.lv&&HR.lv<30){HR.xp-=30*HR.lv;HR.lv++;HR.sp++;HR.hp=Math.min(stat(HR).mhp,HR.hp+stat(HR).mhp*.5);if(dg)fx(dg.p.x,dg.p.y-.5,'LEVEL UP! +1 SP','#9f9')}}
 
+// Spiral outward to find the nearest valid non-water tile near target coordinates
+function findNearestValidTile(startX, startY) {
+  let sx = startX | 0, sy = startY | 0;
+  if (sx >= 0 && sy >= 0 && sx < N && sy < N) {
+    let i = sy * N + sx;
+    let t = ter[i];
+    if (t !== 3 && t !== 4 && !bg[i] && !rd[i]) {
+      return { x: sx + 0.5, y: sy + 0.5 };
+    }
+  }
+  for (let r = 1; r <= 10; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.abs(dx) === r || Math.abs(dy) === r) {
+          let nx = sx + dx;
+          let ny = sy + dy;
+          if (nx >= 0 && ny >= 0 && nx < N && ny < N) {
+            let ni = ny * N + nx;
+            let nt = ter[ni];
+            if (nt !== 3 && nt !== 4 && !bg[ni]) {
+              return { x: nx + 0.5, y: ny + 0.5 };
+            }
+          }
+        }
+      }
+    }
+  }
+  return { x: startX + 0.5, y: startY + 0.5 };
+}
+
 function checkHeroHomeBuilt(b){
- if(b && b.k == 'hero_home' && !HR){
-  HR = newHero();
-  HR.x = b.x + 1.5; 
-  HR.y = b.y + 0.5; 
-  HR.alive = 1; 
-  HR.on = 1;
-  toast('⛺ Hero Home built! The hero has stepped out to explore the realm!');
+ if(b && b.k == 'hero_home'){
+  if(!HR){
+   HR = newHero();
+   let safePos = findNearestValidTile(b.x, b.y);
+   HR.x = safePos.x; 
+   HR.y = safePos.y; 
+   HR.alive = 1; 
+   HR.on = 1;
+   toast('⛺ Hero Home built! The hero has stepped out to explore the realm!');
+  } else {
+   toast('⛺ Hero Home relocated! The unique hero remains active.');
+  }
  }
 }
 
-function ensureHero(){
+function checkHeroHomeInit(){
  if(!HR){
   let h = bl.find(b => b.k == 'hero_home');
   if(h){
    HR = newHero();
-   HR.x = h.x + 1.5; HR.y = h.y + 0.5; HR.alive = 1; HR.on = 1;
+   let safePos = findNearestValidTile(h.x, h.y);
+   HR.x = safePos.x; HR.y = safePos.y; HR.alive = 1; HR.on = 1;
   }
  }
+}
+
+function ensureHero(){
+ checkHeroHomeInit();
  return HR;
 }
 
 function townTick(dt){
  ensureHero();
  if(HR){
+  let hx = HR.x|0, hy = HR.y|0;
+  if(hx >= 0 && hy >= 0 && hx < N && hy < N){
+   let curTer = ter[hy*N + hx];
+   if((curTer == 3 || curTer == 4) && !rd[hy*N + hx]){
+    let H = home();
+    if(H){
+     let safePos = findNearestValidTile(H.x, H.y);
+     HR.x = safePos.x; HR.y = safePos.y; HR.path = [];
+     toast('🛡️ Hero found a way out of the water and returned to safety!');
+    }
+   }
+  }
+
   portalState.raidTime -= dt;
   if(portalState.raidTime <= 0){
    portalState.raidTime = 45;
@@ -71,7 +124,7 @@ function townTick(dt){
      if(dist > 1.5){
       rm.x += (dx/dist) * 1.0 * dt; rm.y += (dy/dist) * 1.0 * dt;
      } else {
-      let targetBld = bl.find(b=>b.k=='cottage') || bl[0];
+      let targetBld = bl.find(b=>b.k=='townhall') || bl[0];
       if(targetBld){
        targetBld.hp -= 10 * dt;
        if(targetBld.hp <= 0 && !targetBld.dead){
@@ -90,8 +143,13 @@ function townTick(dt){
    let distToHome = Math.hypot(HR.x - H.x, HR.y - H.y);
    if(distToHome > 1.5){
     let p = find(HR.x|0, HR.y|0, H.x, H.y);
-    if(p) HR.path = p;
-    HR.act = 'Retreating to camp';
+    if(p && p.length > 0) {
+     HR.path = p;
+     HR.act = 'Retreating to camp';
+    } else {
+     let safePos = findNearestValidTile(H.x, H.y);
+     HR.x = safePos.x; HR.y = safePos.y; HR.path = [];
+    }
    } else {
     HR.hp = Math.min(S.mhp, HR.hp + S.mhp * 0.2 * dt);
     HR.act = 'Resting at Hero Home';
@@ -101,7 +159,7 @@ function townTick(dt){
     let w = wander(HR, 5);
     if(w){
      let p = find(HR.x|0, HR.y|0, w.x, w.y);
-     if(p) { HR.path = p; HR.act = 'Wandering wilderness'; }
+     if(p && p.length > 0) { HR.path = p; HR.act = 'Wandering wilderness'; }
     }
    }
   }
