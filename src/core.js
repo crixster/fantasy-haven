@@ -74,7 +74,7 @@ function gen(){let s=S0;const r=()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
  ter=h.map((v,i)=>v<.2?4:c[i]>.82?6:v>.8?2:m[i]>.68?1:m[i]<.3&&v>.3?5:0);
  let x=8+r()*34|0;for(let y=0;y<N;y++){x=clamp(x+(r()*3|0)-1,1,N-2);[x,x+1].forEach(X=>{if(ter[y*N+X]!=4)ter[y*N+X]=3})}
  for(let y=19;y<31;y++)for(let x=19;x<31;x++)ter[y*N+x]=0}
-function paint(){let s=season();tc=ter.map((t,i)=>let[h,sa,l]=PAL[t][s];return`hsl(${h},${sa}%,${l+((i%N*7+(i/N|0)*13)%4)*1.2}%)`)}
+function paint(){let s=season();tc=ter.map((t,i)=>{let[h,sa,l]=PAL[t][s];return`hsl(${h},${sa}%,${l+((i%N*7+(i/N|0)*13)%4)*1.2}%)`})}
 
 const TL={g:0,f:1,h:2,l:5,x:6},LL={g:'grass',f:'forest',h:'hill',l:'flowers',x:'crystal',w:'3×3 water'},
 TF={t_clear:['🪓','Clear Trees',[1],0,[10,0,0,0],'w',3],t_plant:['🌲','Plant Trees',[0,5],1,[6,0,0,0]],t_flat:['⛏️','Level Hill',[2],0,[15,0,0,0],'s',5],t_raise:['⛰️','Raise Hill',[0,1,5],2,[20,0,10,0]],t_dig:['💧','Dig Water',[0,1,2,5],4,[25,0,0,0]],t_fill:['🧱','Fill Water',[3,4],0,[0,5,8,0]],t_bloom:['🌸','Sow Flowers',[0],5,[6,0,0,0]],t_charm:['🔮','Infuse Crystal',[0,1,2,5],6,[0,0,0,3]]},
