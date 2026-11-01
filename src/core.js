@@ -84,8 +84,14 @@ function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button da
  return'<div class="ch">'+['Home','Work','Joy','Magic','Path','Land'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+L.join('')+'</div>'}
 function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
+
 function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
- if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];let placedBld = put(k,x,y);assign();calc();if(typeof checkHeroHomeBuilt==='function')checkHeroHomeBuilt(placedBld);}
+ if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];
+ let placedBld = put(k,x,y);assign();calc();
+ if(typeof checkHeroHomeBuilt==='function') checkHeroHomeBuilt(placedBld);
+}
+
+
 
 function demolish(x,y){
   let i=y*N+x,b=bg[i];
