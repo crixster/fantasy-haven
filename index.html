@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fantasy Haven</title>
+<style>
+:root{--bg:#bfe0e8;--fg:#4a3b52;--pn:#fffaf2;--ch:#ffe6ef;--ac:#f08fb4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1e2a30;--fg:#f3e9f7;--pn:#322a42;--ch:#463a5c}}
+:root[data-theme=dark]{--bg:#1e2a30;--fg:#f3e9f7;--pn:#322a42;--ch:#463a5c}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--fg);font:13px/1.35 ui-rounded,"Nunito",system-ui,sans-serif;user-select:none;-webkit-user-select:none}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pn)}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+#top{position:fixed;top:0;left:0;right:0;z-index:5;padding:calc(5px + env(safe-area-inset-top,0px)) 8px 5px;background:var(--pn);text-align:center;font-weight:700;border-radius:0 0 14px 14px;box-shadow:0 2px 8px #0003}
+#top small{display:block;font-weight:500;opacity:.8}
+#mm{position:fixed;right:8px;top:calc(58px + env(safe-area-inset-top,0px));width:104px;height:104px;border:3px solid var(--pn);border-radius:10px;image-rendering:pixelated;z-index:4;touch-action:none;box-shadow:0 2px 8px #0004}
+#toast{position:fixed;left:8px;top:calc(60px + env(safe-area-inset-top,0px));max-width:62%;background:var(--pn);padding:6px 10px;border-radius:12px;z-index:6;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 2px 8px #0004}
+#bar{position:fixed;left:0;right:0;bottom:0;z-index:7;display:flex;gap:4px;justify-content:center;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:var(--pn);box-shadow:0 -2px 8px #0003}
+#bar .sp{width:0}#bar button{padding:6px 5px}
+button{font:inherit;color:inherit;background:var(--ch);border:0;border-radius:10px;padding:6px 9px;min-height:34px}
+button.on,.ch b.on{background:var(--ac);color:#fff}
+button:disabled{opacity:.45}
+#sheet,#hint{position:fixed;left:0;right:0;z-index:6;background:var(--pn);padding:10px 12px;box-shadow:0 -2px 10px #0003}
+#sheet{bottom:calc(50px + env(safe-area-inset-bottom,0px));max-height:42%;overflow:auto;border-radius:16px 16px 0 0}
+#hint{bottom:calc(50px + env(safe-area-inset-bottom,0px));text-align:center;border-radius:16px 16px 0 0;background:var(--ac);color:#fff;font-weight:700}
+[hidden]{display:none!important}
+.ch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ch b{background:var(--ch);padding:5px 10px;border-radius:12px;font-weight:600}
+.gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:6px}
+.gr button{text-align:center;padding:6px 4px}
+.gr small,.lst small{display:block;opacity:.75}
+.nh{display:flex;gap:10px;align-items:center;margin-bottom:6px}.nh div{flex:1}
+.pt{font-size:30px;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--ch)}
+.b{display:inline-block;vertical-align:middle;width:70px;height:8px;border-radius:5px;background:var(--ch);overflow:hidden;margin:0 4px}
+.b i{display:block;height:100%;background:var(--ac)}
+.r{margin:4px 0}.lst div{padding:6px 4px;border-bottom:1px solid var(--ch)}.lst span{float:right;font-weight:700}
+.q{padding:6px 0;border-bottom:1px solid var(--ch)}.cr{margin-top:8px;display:flex;gap:6px}.lst button{padding:3px 7px;min-height:28px;margin-left:3px}
+</style></head><body>
+<script>/* on-screen error banner: shows load/runtime errors on phones */
+(function(){var seen={};function show(m){if(seen[m])return;seen[m]=1;var d=document.getElementById('fhErr');if(!d){d=document.createElement('div');d.id='fhErr';d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99;background:#b00020;color:#fff;font:12px/1.35 system-ui;padding:8px 10px;white-space:pre-wrap;max-height:45%;overflow:auto';(document.body||document.documentElement).appendChild(d)}d.textContent+=m+'\n'}
+addEventListener('error',function(e){var t=e.target;if(t&&t.tagName=='SCRIPT')show('Could not load '+(t.getAttribute('src')||'a script')+'. Upload the whole src/ folder next to index.html (file names are case-sensitive on GitHub).');else show('Error: '+e.message+' ('+String(e.filename||'').split('/').pop()+':'+e.lineno+')')},true);
+addEventListener('unhandledrejection',function(e){show('Error: '+(e.reason&&e.reason.message||e.reason))})})();</script>
+
+<canvas id="c"></canvas><div id="top"></div><canvas id="mm" width="50" height="50"></canvas>
+<div id="toast"></div><div id="hint" hidden data-a="cancel"></div><div id="sheet" hidden></div>
+<div id="bar"><button data-a="tab:build">🔨</button><button data-a="tab:stats">📊</button><button data-a="tab:folk">🧑</button><button data-a="tab:quests">📜</button><button data-a="tab:trade">💱</button><button data-a="tab:hero">⚔️</button><button data-a="hh:1">🏠</button><span class="sp"></span><button data-a="spd:0">⏸</button><button data-a="spd:1" class="on">1×</button><button data-a="spd:2">2×</button><button data-a="spd:4">4×</button></div>
+<script src="src/core.js"></script>
+<script src="src/hero.js"></script>
+<script src="src/items.js"></script>
+<script src="src/dungeon.js"></script>
+<script src="src/boss.js"></script>
+<script src="src/town-link.js"></script>
+<script src="src/housing.js"></script>
+</body></html>
