@@ -46,7 +46,7 @@ function kill(m){dg.mons.splice(dg.mons.indexOf(m),1);if(dg.tg==m)dg.tg=null;let
  if(m.boss)return bossDie(m);
  if(Math.random()<.45){let r=pk(['w','s','f']),n=1+Math.random()*3|0;P[r]+=n;fx(m.x,m.y-.5,'+'+n+IC[r],'#fff')}
  if(el||Math.random()<.3){P.E[m.el]++;fx(m.x,m.y-.8,'+'+EI[m.el]+' essence','#cff')}
- if(Math.random()<.04+.015*dg.f){P.gem++;fx(m.x,m.y-1.1,+💠 rare gem!','#f9f')}
+ if(Math.random()<.04+.015*dg.f){P.gem++;fx(m.x,m.y-1.1,'+💠 rare gem!','#f9f')}
  if(Math.random()<(el?.5:.06+.004*dg.f))dropAt(m.x,m.y,rollItem(f||1,m.src));
  if(Math.random()<.09)dg.drops.push({x:m.x,y:m.y,orb:1});
  gainXP((10+L*6)*(el?2.5:1)|0)}
@@ -102,7 +102,7 @@ function dStep(dt){const P=dg.p,b=dg.b,S=stat(HR);for(const k in dg.cd)dg.cd[k]-
 
 function enter(el){
  if(dg||!HR||!HR.alive||!gate())return toast('Your hero must be waiting at a Dungeon Gate');
- let randEl = el || pk(EL); // If no element specified, pick random element type
+ let randEl = el || pk(EL);
  dg={z:randEl,pack:{g:0,w:0,s:0,f:0,c:0,gem:0,E:{fire:0,water:0,earth:0,wind:0},it:[]}};
  setup(1);view=null;tool=null;mk();$('dg').hidden=false;sizeD();skillBar();
  toast('Entering ' + EI[randEl] + ' Dungeon!');
@@ -127,7 +127,6 @@ function mk(){if($('dg'))return;let d=document.createElement('div');d.id='dg';d.
  
  d.onclick=e=>{let b=e.target.closest('button[data-s]');if(!b||!dg)return;let id=b.dataset.s;id=='leave'?leave():id=='dodge'?dodge():cast(id)};addEventListener('resize',sizeD);
  
- // Hold skill button to show range/area indicator
  d.onpointerdown=e=>{let b=e.target.closest('button[data-s]');if(b&&b.dataset.s!='dodge'){activeSkillRange=b.dataset.s}};
  d.onpointerup=d.onpointercancel=()=>{activeSkillRange=null};
 
@@ -167,10 +166,8 @@ function dRender(){const c=$('dc'),x=c.getContext('2d'),W=c.width,Hh=c.height,ts
  dg.drops.forEach(d=>{if(d.orb)return S('❤️',d.x,d.y,.5);let R=RAR[d.it.r];x.fillStyle=R.b;x.globalAlpha=.3+.2*Math.sin(Date.now()/200);x.beginPath();x.arc(ox+d.x*ts,oy+d.y*ts,.32*ts,0,7);x.fill();x.globalAlpha=1;S(SLI[d.it.sl],d.x,d.y,.55);x.fillStyle=R.b;x.fillText(d.it.n,ox+d.x*ts,oy+(d.y-.4)*ts)});
  if(dg.tg&&dg.tg.hp>0){let t=dg.tg,z=t.sz||1;x.strokeStyle='#f55';x.lineWidth=2;x.beginPath();x.ellipse(ox+t.x*ts,oy+(t.y+.35*z)*ts,.45*ts*z,.18*ts*z,0,0,7);x.stroke()}
  
- // Draw Attack Range ring around hero in dungeon
  x.strokeStyle='rgba(240, 143, 180, 0.45)';x.lineWidth=2;x.beginPath();x.arc(ox+P.x*ts,oy+P.y*ts,1.4*ts,0,7);x.stroke();
 
- // Draw active skill range/area indicator if holding a skill button
  if(activeSkillRange){
   x.strokeStyle='rgba(80, 200, 255, 0.7)';x.fillStyle='rgba(80, 200, 255, 0.15)';x.lineWidth=2;
   x.beginPath();x.arc(ox+P.x*ts,oy+P.y*ts,3.5*ts,0,7);x.fill();x.stroke();
@@ -180,7 +177,6 @@ function dRender(){const c=$('dc'),x=c.getContext('2d'),W=c.width,Hh=c.height,ts
  if(dg.b.sh>0){x.strokeStyle=dg.b.shEl?'#8cf':'#fff';x.lineWidth=3;x.beginPath();x.arc(ox+P.x*ts,oy+P.y*ts,.5*ts,0,7);x.stroke()}
  
  x.globalAlpha=dg.b.inv>0?.45:1;S('🧝',P.x,P.y,.9);
- // Hero swing/attack slash effect animation
  if(dg.b.swing>0){x.strokeStyle='#fff';x.lineWidth=3;x.beginPath();x.arc(ox+P.x*ts,oy+P.y*ts,.8*ts,0,7);x.stroke()}
  x.globalAlpha=1;
 
