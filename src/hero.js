@@ -15,7 +15,7 @@ let randomPortals = [];
 let portalState = { raidTime: 40 };
 
 const home=()=>bl.find(b=>b.k=='hero_home')||bl[0]||{x:N/2|0,y:N/2|0};
-const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],slvl:{},w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:1,path:[]}),
+const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],slvl:{},w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:1,path:[],act:'Wandering wilderness'}),
 stat=h=>{if(!h)return{mhp:60,atk:8,def:2,cr:5,ls:0,ms:0,gf:0,xp:0};const m=mods(h);return{mhp:60+12*(h.lv-1)+h.a.t*10+m.hp,atk:8+2*(h.lv-1)+h.w.t*4+m.atk,def:2+(h.lv-1)+h.a.t*3+m.def,cr:Math.min(60,5+m.cr),ls:Math.min(25,m.ls),ms:Math.min(40,m.ms),gf:m.gf,xp:m.xp}},
 ens=()=>{res.gem=res.gem||0;res.E=res.E||{fire:0,water:0,earth:0,wind:0}},gate=()=>randomPortals[0];
 
@@ -24,8 +24,12 @@ function gainXP(x){if(!HR)return;HR.xp+=Math.round(x*(1+stat(HR).xp/100));while(
 function checkHeroHomeBuilt(b){
  if(b && b.k == 'hero_home' && !HR){
   HR = newHero();
-  HR.x = b.x + 0.5; HR.y = b.y + 0.5; HR.alive = 1; HR.on = 1;
-  toast('⛺ Hero Home built! Hero has arrived and portals are appearing in the wild!');
+  // Spawn beside the Hero Home (1 tile to the right)
+  HR.x = b.x + 1.5; 
+  HR.y = b.y + 0.5; 
+  HR.alive = 1; 
+  HR.on = 1;
+  toast('⛺ Hero Home built! The hero has stepped out to explore the realm!');
  }
 }
 
@@ -34,7 +38,7 @@ function ensureHero(){
   let h = bl.find(b => b.k == 'hero_home');
   if(h){
    HR = newHero();
-   HR.x = h.x + 0.5; HR.y = h.y + 0.5; HR.alive = 1; HR.on = 1;
+   HR.x = h.x + 1.5; HR.y = h.y + 0.5; HR.alive = 1; HR.on = 1;
   }
  }
  return HR;
@@ -88,12 +92,27 @@ function townTick(dt){
    if(distToHome > 1.5){
     let p = find(HR.x|0, HR.y|0, H.x, H.y);
     if(p) HR.path = p;
+    HR.act = 'Retreating to camp';
    } else {
     HR.hp = Math.min(S.mhp, HR.hp + S.mhp * 0.2 * dt);
+    HR.act = 'Resting at Hero Home';
+   }
+  } else {
+   // Autonomous wandering if no path or target is set
+   if(!HR.path.length && Math.random() < 0.02){
+    let w = wander(HR, 5);
+    if(w){
+     let p = find(HR.x|0, HR.y|0, w.x, w.y);
+     if(p) { HR.path = p; HR.act = 'Wandering wilderness'; }
+    }
    }
   }
 
-  if(HR.path.length){let p=HR.path[0],dx=p[0]+.5-HR.x,dy=p[1]+.5-HR.y,d=Math.hypot(dx,dy),st=1.8*dt;if(d<=st){HR.x=p[0]+.5;HR.y=p[1]+.5;HR.path.shift()}else{HR.x+=dx/d*st;HR.y+=dy/d*st}}
+  if(HR.path.length){
+   let p=HR.path[0],dx=p[0]+.5-HR.x,dy=p[1]+.5-HR.y,d=Math.hypot(dx,dy),st=1.6*dt;
+   if(d<=st){HR.x=p[0]+.5;HR.y=p[1]+.5;HR.path.shift()}
+   else{HR.x+=dx/d*st;HR.y+=dy/d*st}
+  }
  }
 }
 
