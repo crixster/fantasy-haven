@@ -5,7 +5,8 @@ clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),R=(a,b)=>a+Math.random()*(b-a),pk=a=>a[
 
 const BLD_BASE_HP=100, REPAIR_COST_G=15, REPAIR_COST_W=10;
 
-const CAT=`cottage|🏠|Cottage|Home|40/10/0/0|home=2
+const CAT=`townhall|🏛️|Town Hall|Home|150/50/50/0|home=4,bea=3,g=8,u=0
+cottage|🏠|Cottage|Home|40/10/0/0|home=2
 family|🏡|Family House|Home|90/25/5/0|home=4
 noble|🏰|Noble Home|Home|220/20/40/0|home=3,bea=2,g=6,u=20
 inn|🛏️|Inn|Home|120/30/10/0|home=2,job=2,tou=2,g=5
@@ -73,16 +74,23 @@ TF={t_clear:['🪓','Clear Trees',[1],0,[10,0,0,0],'w',3],t_plant:['🌲','Plant
 PR={f:[3,1,10],w:[4,2,10],s:[6,3,10],c:[60,30,1]};
 const wat=(x,y)=>x>=0&&y>=0&&x<N&&y<N&&(ter[y*N+x]==3||ter[y*N+x]==4);
 function big(x,y){for(let a=x-2;a<=x;a++)for(let b=y-2;b<=y;b++){let k=1;for(let u=0;u<3&&k;u++)for(let v=0;v<3;v++)if(!wat(a+u,b+v)){k=0;break}if(k)return 1}return 0}
-const can=(k,x,y)=>k in TF?!bg[y*N+x]&&!rd[y*N+x]&&TF[k][2].includes(ter[y*N+x]):ok(k,x,y);
+const can=(k,x,y)=>{
+ if(k=='townhall' && (cnt.townhall||0)>=1) return 0;
+ if(k=='hero_home' && (cnt.hero_home||0)>=1) return 0;
+ return k in TF?!bg[y*N+x]&&!rd[y*N+x]&&TF[k][2].includes(ter[y*N+x]):ok(k,x,y);
+};
 function pay(c){if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return 0;res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];return 1}
 function terra(k,x,y){let t=TF[k],i=y*N+x;if(x<0||y<0||x>=N||y>=N)return;if(bg[i]||rd[i])return toast('Demolish what’s on this tile first');if(!t[2].includes(ter[i]))return toast('Doesn’t work on this land');if(!pay(t[4]))return toast('Not enough resources');ter[i]=t[3];if(t[5])res[t[5]]+=t[6];paint();calc()}
 function trade(a,r){let[b,s,n]=PR[r];if(a=='buy'){if(res.g<b*n)return toast('Not enough gold');res.g-=b*n;res[r]+=n}else{if(res[r]<n)return toast('Not enough '+IC[r]);res[r]-=n;res.g+=s*n}}
 function vTrade(){return'<b>💱 Traveling Merchant</b><div class="lst">'+Object.keys(PR).map(r=>{let[b,s,n]=PR[r];return`<div>${IC[r]} <b>${res[r]|0}</b><span><button data-a="buy:${r}">Buy ${n} · ${b*n}🪙</button><button data-a="sell:${r}">Sell ${n} · ${s*n}🪙</button></span></div>`}).join('')+'</div>'}
-function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=b.u>npcs.length;return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${l?'🔒 pop '+b.u:cost(b)}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
+function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=(b.u>npcs.length)||(b.k=='townhall'&&(cnt.townhall||0)>=1)||(b.k=='hero_home'&&(cnt.hero_home||0)>=1);let note=b.k=='townhall'&&(cnt.townhall||0)>=1?'🔒 Only 1 allowed':b.k=='hero_home'&&(cnt.hero_home||0)>=1?'🔒 Only 1 allowed':l?'🔒 pop '+b.u:cost(b);return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${note}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
  return'<div class="ch">'+['Home','Work','Joy','Magic','Path','Land'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+L.join('')+'</div>'}
-function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
+function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;if(k=='townhall'&&(cnt.townhall||0)>=1)return 0;if(k=='hero_home'&&(cnt.hero_home||0)>=1)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
-function place(k,x,y){let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
+function place(k,x,y){
+ if(k=='townhall'&&(cnt.townhall||0)>=1)return toast('🏛️ Only one Town Hall can exist!');
+ if(k=='hero_home'&&(cnt.hero_home||0)>=1)return toast('⛺ Only one Hero Home can exist!');
+ let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
  if(res.g<c[0]||res.w<c[1]||res.s<c[2]||res.c<c[3])return toast('Not enough resources');res.g-=c[0];res.w-=c[1];res.s-=c[2];res.c-=c[3];
  let placedBld = put(k,x,y);assign();calc();
  if(k === 'hero_home' && typeof checkHeroHomeBuilt === 'function') {
@@ -178,7 +186,7 @@ function save(){try{let ix=new Map(bl.map((b,i)=>[b,i]));localStorage.setItem('f
 }
 function init(sv){S0=sv?sv.S:Math.random()*1e9|0;gen();ter0=ter.slice();if(sv&&sv.tf)sv.tf.forEach(([i,t])=>ter[i]=t);vm=null;rd=new Uint8Array(N*N);bg=new Array(N*N).fill(null);bl=[];npcs=[];NM=new Map();nid=0;done=[];quests=[];fest='';wx='sun';wxT=5;follow=null;
  if(sv){res=sv.res;tm=sv.H;D=sv.D;rd=Uint8Array.from(sv.rd);sv.bl.forEach(([k,x,y,hp])=>{let b=put(k,x,y);if(b&&hp!==undefined)b.hp=hp;});sv.np.forEach(o=>{let h=bl[o.h]||null;let n=spawn(h,o);n.home=h;n.work=bl[o.w]||null});nid=sv.nid;done=sv.done||[];quests=sv.q||[]}
- else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
+ else{res={g:600,f:40,w:80,s:40,c:3};tm=8;D=1;for(let x=21;x<=29;x++)put('road',x,25);[[25,25,'townhall'],[22,24,'cottage'],[24,24,'cottage'],[26,24,'cottage'],[22,26,'farm'],[24,26,'market'],[26,26,'park']].forEach(([x,y,k])=>put(k,x,y));for(let i=0;i<5;i++)spawn(bl[i%3])}
  paint();assign();calc();qgen()}
 
 function rs(){K=Math.min(devicePixelRatio||1,2);cv.width=CW=innerWidth*K|0;cv.height=CH=innerHeight*K|0;if(!cam.tz)cam.z=cam.tz=clamp(innerWidth/(13*T),.5,2)}
@@ -261,11 +269,28 @@ function hintUI(){let h=$('hint');h.hidden=!tool;if(tool)h.innerHTML=tool in TF?
 document.onclick=e=>{let a=e.target.closest('[data-a]');if(!a)return;let[c,v]=a.dataset.a.split(':');
  if(c=='tab'){view=view&&view.t==v?null:{t:v};tool=null;follow=null}else if(c=='cat')cat=v;else if(c=='pick'){tool=v;view=null;vm=null}else if(c=='buy'||c=='sell')trade(c,v);else if(c=='spd')spd=+v;
  else if(c=='close'){view=null;follow=null}else if(c=='npc'){let n=NM.get(+v);view={t:'npc',o:n};follow=n}else if(c=='repair'){repairBuilding(bl[+v])}else if(c=='save')save();else if(c=='cancel')tool=null;
- else if(c=='cheat'){res.g+=500;res.w+=500;res.s+=500;res.c+=50;toast('🎁 Cheat used: +500 Gold/Wood/Stone/Crystals!')}
+ else if(c=='cheat'){
+   res.g+=1000; res.w+=1000; res.s+=1000; res.c+=100;
+   for(let i=0; i<15; i++) {
+     let homeBld = pk(bl.filter(b=>b.home)) || bl[0];
+     spawn(homeBld);
+   }
+   let emptySpots = [];
+   for(let y=5; y<45; y+=3){
+     for(let x=5; x<45; x+=3){
+       if(!bg[y*N+x] && !rd[y*N+x]) emptySpots.push({x, y});
+     }
+   }
+   ['cottage','noble','farm','market','park','wizard'].forEach(k=>{
+     if(emptySpots.length){let pt = emptySpots.splice(Math.random()*emptySpots.length|0, 1)[0];put(k, pt.x, pt.y);}
+   });
+   assign(); calc();
+   toast('🎁 Super Cheat: +Max Resources, Cottages, & Residents spawned!');
+ }
  else if(c=='new'){if(newArm){localStorage.removeItem('fh1');newArm=0;init();view=null}else{newArm=1;toast('Tap “New town” again to confirm')}}
  hintUI();refresh()};
 function ui(){let bd=bl.reduce((a,b)=>a+(b.home||0),0),fb=bd-npcs.length;
- $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <button data-a="cheat" style="font-size:10px;padding:1px 4px;margin-left:4px;background:#ffe5b4;border:1px solid #c9a77a;border-radius:4px;cursor:pointer;">🎁 Cheat</button> <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛏️'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
+ $('top').innerHTML=`🪙${res.g|0} 🍞${res.f|0} 🪵${res.w|0} 🪨${res.s|0} 💎${res.c|0} <button data-a="cheat" style="font-size:10px;padding:1px 4px;margin-left:4px;background:#ffe5b4;border:1px solid #c9a77a;border-radius:4px;cursor:pointer;">🎁 Cheat</button> <span style="${fb<=0?'color:#c0392b':''}">👥${npcs.length}/${bd}</span> 😊${M.hap|0}%<small>${M.rank} · ${fb>0?'🛲'+fb+' free':'🏠 FULL'} · ${SN[season()]} Y${(D-1)/32+1|0} D${(D-1)%8+1} · ${hh()} ${WI[wx]}${fest?' · 🎉 '+fest:''}</small>`}
 
 let last=performance.now();
 function loop(now){let dt=Math.min(.1,(now-last)/1000);last=now;if(spd){let sd=dt*spd;tm+=sd*.2;if(tm>=24){tm-=24;newDay()}sim(sd)}render(now/1000);requestAnimationFrame(loop)}
