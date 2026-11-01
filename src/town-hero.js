@@ -4,9 +4,9 @@
  Needs from hero.js: HR SK EL EI MO stat mult gainXP randomPortals THCon destroyBld
  Needs from items.js: wel
  Needs from dungeon.js: dg enter
- Provides: THC thToggle thRaiders thCast thStep thUI thWalk
+ Provides: THC thToggle thRaiders thCast thStep thUI thWalk thHurt thDie thBar thRing
  Hooks: wraps render (controls, fx, UI refresh). Load order: last (after housing.js) */
-const THC={on:0,js:null,ah:0,cd:{},b:{atk:0,spd:0},at:0,fx:[],near:null,snooze:null,ui:0,lt:0,prompt:null};
+const THC={on:0,js:null,ah:0,cd:{},b:{atk:0,spd:0,sh:0,shv:0,shEl:null},at:0,fx:[],near:null,snooze:null,ui:0,lt:0,prompt:null};
 const TH_EN={fire:'Ember',water:'Tidal',earth:'Stone',wind:'Gale'};
 const TH_COL={fire:'#ff6a2b',water:'#3ab0ff',earth:'#a98a3c',wind:'#8fe3c4'};
 
@@ -23,6 +23,23 @@ function thToggle(){
   refresh();hintUI();thUI(1);
 }
 
+function thHurt(raw,el,who){
+  if(!HR||!HR.alive||dg)return;
+  const b=THC.b,S=stat(HR);
+  let x=mult(el,b.sh>0?b.shEl:ael()),dm=Math.max(1,Math.round(raw*x-S.def*.5));
+  if(b.sh>0){let a=Math.min(b.shv,dm);b.shv-=a;dm-=a;if(b.shv<=0)b.sh=0}
+  thFx(HR.x,HR.y-.6,dm>0?'-'+dm+(x>1?'!':''):'Blocked','#f77');
+  if(dm>0){HR.hp-=dm;HR.resting=0}
+  if(HR.hp<=0)thDie(who);
+}
+function thDie(who){
+  const z=Object.fromEntries(RK.map(k=>[k,0])),E=Object.fromEntries(EL.map(e=>[e,0]));
+  let at=findNearestValidTile(HR.x,HR.y),it=Object.values(HR.eq).filter(Boolean);
+  tombs.push({x:at.x-.5|0,y:at.y-.5|0,n:HR.n,lv:HR.lv,w:HR.w,a:HR.a,it,by:(who||'raiders'),z:'town',fl:0,p:{...z,E}});
+  hgen++;HR=newHero();HR.alive=0;HR.rs=1;THC.on=0;THC.js=null;THC.ah=0;THC.b={atk:0,spd:0,sh:0,shv:0,shEl:null};follow=null;
+  toast('💀 Your hero was slain by raiders! A tombstone marks the spot. A new hero arrives tomorrow.',5000);
+  thUI(1);
+}
 function thKill(o){
   let a=o.p.raidWave,i=a.indexOf(o.r);if(i>=0)a.splice(i,1);
   gainXP(6);res.g+=4;thFx(o.r.x,o.r.y-.6,'+6 XP','#9f9');
@@ -48,6 +65,7 @@ function thCast(id){
     // Ward: repairs nearby buildings and shoves + stuns raiders close to the hero
     let n=0;for(const b of bl)if(!b.dead&&Math.hypot(b.x+.5-HR.x,b.y+.5-HR.y)<7){b.hp=Math.min(b.mhp,b.hp+b.mhp*.3*pw);n++}
     for(const q of thRaiders()){let dx=q.r.x-HR.x,dy=q.r.y-HR.y,d=Math.hypot(dx,dy)||1;if(d<3.2){q.r.stun=1.5*pw;let nx=q.r.x+dx/d*1.8,ny=q.r.y+dy/d*1.8;if(thWalk(nx,ny)){q.r.x=nx;q.r.y=ny}}}
+    B.sh=5;B.shv=(10+S.def*2+HR.lv*3)*pw;B.shEl=k.el;
     THC.fx.push({k:'r',x:HR.x,y:HR.y,c:TH_COL[k.el],l:.6,m:.6,r:7});
     thFx(HR.x,HR.y-.9,k.e+' Ward'+(n?' · repaired '+n:''),'#fff');
   }else{
@@ -60,23 +78,29 @@ function thCast(id){
 }
 
 function thStep(dt){
-  const act=THC.on&&HR&&HR.alive&&!dg;
-  if(!act){if(THC.on&&(dg||!HR||!HR.alive)){THC.on=0;THC.js=null;THC.ah=0;thUI(1)}return}
+  if(!HR||!HR.alive||dg){if(THC.on){THC.on=0;THC.js=null;THC.ah=0;thUI(1)}return}
   for(const k in THC.cd)THC.cd[k]-=dt;THC.b.atk-=dt;THC.b.spd-=dt;THC.at-=dt;
+  if(THC.b.sh>0&&(THC.b.sh-=dt)<=0)THC.b.shv=0;
+  const S=stat(HR);
+  // rest: standing at the Hero Home heals the hero (nothing else does)
+  const H=bl.find(b=>b.k=='hero_home');
+  THC.rest=!!(H&&Math.hypot(HR.x-(H.x+.5),HR.y-(H.y+.5))<2.2&&!thRaiders().some(o=>Math.hypot(o.r.x-HR.x,o.r.y-HR.y)<4));
+  if(THC.rest&&HR.hp<S.mhp){HR.hp=Math.min(S.mhp,HR.hp+S.mhp*.15*dt);if(HR.hp>=S.mhp)thFx(HR.x,HR.y-.8,'Fully rested','#9f9')}
+  // the hero always fights back against monsters in reach (even when not controlled)
+  if(THC.at<=0){let[q]=thNear(1.5);if(q){THC.at=THC.b.spd>0?.55:.8;thHit(q,S.atk*(THC.b.atk>0?1.5:1),wel())}}
+  THC.fx.forEach(e=>{e.l-=dt;if(e.k=='t')e.y-=dt*.6});THC.fx=THC.fx.filter(e=>e.l>0);
+  if(!THC.on)return;
   follow=HR;
-  const S=stat(HR),spd_=3.2*(1+S.ms/100)*(THC.b.spd>0?1.6:1);
+  const spd_=3.2*(1+S.ms/100)*(THC.b.spd>0?1.6:1);
   let[o,d]=thNear(10),mv=null;
   if(THC.js)mv={x:THC.js.x,y:THC.js.y,k:Math.max(.35,THC.js.k||1)};
   else if(THC.ah&&o&&d>1.1){let dx=o.r.x-HR.x,dy=o.r.y-HR.y,m=Math.hypot(dx,dy)||1;mv={x:dx/m,y:dy/m,k:1}}
   if(mv){let st=spd_*mv.k*dt,nx=HR.x+mv.x*st,ny=HR.y+mv.y*st;if(thWalk(nx,HR.y))HR.x=nx;if(thWalk(HR.x,ny))HR.y=ny;HR.path=[];HR.act='Under your control'}
   HR.x=clamp(HR.x,.5,N-.5);HR.y=clamp(HR.y,.5,N-.5);
-  // auto-attack nearest raider in reach
-  if(THC.at<=0){let[q,qd]=thNear(1.5);if(q){THC.at=THC.b.spd>0?.55:.8;thHit(q,S.atk*(THC.b.atk>0?1.5:1),wel())}}
   // portal proximity
   let np=randomPortals.find(p=>Math.hypot(p.x+.5-HR.x,p.y+.5-HR.y)<1.3)||null;
   if(THC.snooze&&Math.hypot(THC.snooze.x+.5-HR.x,THC.snooze.y+.5-HR.y)>2.6)THC.snooze=null;
   if(np&&np!==THC.snooze&&!THC.prompt){THC.prompt=np;THC.js=null;THC.ah=0;thPrompt(np)}
-  THC.fx.forEach(e=>{e.l-=dt;if(e.k=='t')e.y-=dt*.6});THC.fx=THC.fx.filter(e=>e.l>0);
 }
 
 function thPrompt(p){
@@ -132,7 +156,8 @@ function thUI(force){
   if(!HR||!show&&!force)return;
   if(THC.on&&show){
     let S=stat(HR),R=thRaiders().length;
-    $('thh').textContent=`🧝 ${HR.n} · ❤️ ${HR.hp|0}/${S.mhp}`+(R?` · 👺 ${R} raider${R>1?'s':''} attacking!`:'');
+    let hint=THC.rest?(HR.hp<S.mhp?' · 💤 resting':''):HR.hp<S.mhp*.5?' · ⛺ walk to Hero Home to heal':'';
+    $('thh').textContent=`🧝 ${HR.n} · ❤️ ${HR.hp|0}/${S.mhp}`+(THC.b.sh>0?' 🛡️'+(THC.b.shv|0):'')+(R?` · 👺 ${R} monster${R>1?'s':''}`:'')+hint;
     $('thn').innerHTML=HR.sk.length?'':'No skills yet.<br>Learn some in the ⚔️ tab.';
     let ids=HR.sk.join(',');
     if($('ts').dataset.k!==ids){$('ts').dataset.k=ids;$('ts').innerHTML=HR.sk.map(id=>{let k=SK.find(s=>s.id==id);return`<button data-ts="${id}" title="${k.n}: ${k.desc}" style="border-color:${TH_COL[k.el]}"></button>`}).join('')}
@@ -158,6 +183,12 @@ function thDrawFx(){
   }
   g.setTransform(1,0,0,1,0,0);
 }
+function thBar(){
+  if(!HR||!HR.alive||dg||townHallDestroyed)return;
+  const s=T*cam.z*K;g.setTransform(s,0,0,s,CW/2-cam.x*s,CH/2-cam.y*s);
+  let S=stat(HR),w=.7;g.fillStyle='#0009';g.fillRect(HR.x-w/2,HR.y-.82,w,.1);g.fillStyle=HR.hp<S.mhp*.35?'#e33':'#4c4';g.fillRect(HR.x-w/2,HR.y-.82,w*Math.max(0,HR.hp/S.mhp),.1);
+  g.setTransform(1,0,0,1,0,0);
+}
 function thRing(){
   if(!THC.on||!HR||!HR.alive||dg)return;
   const s=T*cam.z*K;g.setTransform(s,0,0,s,CW/2-cam.x*s,CH/2-cam.y*s);
@@ -170,7 +201,7 @@ render=t=>{
   let dt=Math.min(.1,Math.max(0,t-_thT));_thT=t;
   if(townHallDestroyed){spd=0;thGameOver()}
   if(dg){_thr(t);return}
-  thStep(dt);_thr(t);thRing();thDrawFx();
+  thStep(dt);_thr(t);thRing();thDrawFx();thBar();
   if((THC.ui-=dt)<=0){THC.ui=.12;thUI()}
 };
 

@@ -118,59 +118,86 @@ function townTick(dt){
 
   portalState.raidTime -= dt;
   if(portalState.raidTime <= 0){
-   portalState.raidTime = 45;
-   if(randomPortals.length < 4){
+   portalState.raidTime = 30;
+   if(randomPortals.length < 1){
     let pp = portalPos();
     if(pp){
      let el = pk(EL);
-     randomPortals.push({x: pp.x, y: pp.y, el, mons: 0, raidWave: []});
-     toast('🌀 A wild Dungeon Portal ('+EI[el]+') has opened far from town!');
+     randomPortals.push({x: pp.x, y: pp.y, el, mons: 0, raidWave: [], st: 6 + Math.random()*6, march: 0});
+     toast('🌀 A Dungeon Portal ('+EI[el]+') has opened far from town!');
     }
    }
   }
 
   randomPortals.forEach(p => {
-   p.mons += dt * 0.2;
-   if(p.mons >= 8 && p.raidWave.length === 0){
-    toast('🚨 Monsters swarming around the ' + EI[p.el] + ' portal are marching on the town!');
-    p.raidWave = Array.from({length: 3}, () => ({x: p.x, y: p.y, hp: 35, mhp: 35, atk: 8, el: p.el, e: '👺'}));
-    p.mons = 0;
+   p.raidWave = p.raidWave || [];
+   if(p.st === undefined) p.st = 8;
+   // 1) monsters appear at random and wander around the portal
+   if((p.st -= dt) <= 0){
+    p.st = 7 + Math.random()*8;
+    if(p.raidWave.length < 12){
+     let e = pk(MO[p.el]);
+     p.raidWave.push({x: p.x+.5+(Math.random()-.5), y: p.y+1+(Math.random()-.5), hp: 35, mhp: 35, atk: 8, el: p.el, e, wt: 0, cd: 0});
+    }
    }
-   if(p.raidWave.length > 0){
-    p.raidWave.forEach(rm => {
-     if(rm.stun>0)rm.stun-=dt;if(rm.slow>0)rm.slow-=dt;
-     let k=rm.stun>0?0:rm.slow>0?.5:1;
-     let tb=null,bd=1e9;for(const b of bl){if(b.dead)continue;let d=Math.hypot(b.x+.5-rm.x,b.y+.5-rm.y);if(b.k=='townhall')d-=4;if(d<bd){bd=d;tb=b}}
-     if(!tb)return;
-     let dx=tb.x+.5-rm.x, dy=tb.y+.5-rm.y, dist=Math.hypot(dx,dy)||1;
-     if(dist > 1.1){
-      rm.x += (dx/dist) * 1.0 * dt * k; rm.y += (dy/dist) * 1.0 * dt * k;
-     } else if(k>0){
-      tb.hp -= 10 * dt;
-      if(tb.hp <= 0 && !tb.dead){
-       let nm=tb.n;destroyBld(tb);
-       toast('💥 '+nm+' destroyed by raiding monsters!');
-      }
+   // 2) once a few have gathered they march on the town
+   if(!p.march && p.raidWave.length >= 5){
+    p.march = 1;
+    toast('🚨 Monsters from the ' + EI[p.el] + ' portal are marching on the town!');
+   }
+   if(p.march && !p.raidWave.length){ p.march = 0; p.st = 10 + Math.random()*8; }
+   const hero = HR && HR.alive && !dg;
+   p.raidWave.forEach(rm => {
+    if(rm.stun>0)rm.stun-=dt;if(rm.slow>0)rm.slow-=dt;if(rm.cd>0)rm.cd-=dt;
+    let k=rm.stun>0?0:rm.slow>0?.5:1;
+    if(k===0)return;
+    // attack the hero if close enough (same melee idea as in the dungeon)
+    if(hero){
+     let hd=Math.hypot(HR.x-rm.x,HR.y-.2-rm.y),aggro=p.march?6:3.5;
+     if(hd<aggro){
+      if(hd>1.0){let dx=HR.x-rm.x,dy=HR.y-.2-rm.y;rm.x+=dx/hd*1.3*dt*k;rm.y+=dy/hd*1.3*dt*k}
+      else if(rm.cd<=0){rm.cd=1.2;if(typeof thHurt==='function')thHurt(rm.atk,rm.el,rm.e)}
+      return;
      }
-    });
-   }
+    }
+    if(!p.march){
+     // wander near the portal
+     if(rm.wt>0){rm.wt-=dt;return}
+     if(rm.tx===undefined||Math.hypot(rm.tx-rm.x,rm.ty-rm.y)<.2){
+      let a=Math.random()*7,r=Math.random()*3;rm.tx=p.x+.5+Math.cos(a)*r;rm.ty=p.y+.5+Math.sin(a)*r;rm.wt=1+Math.random()*2.5;
+      return;
+     }
+     let dx=rm.tx-rm.x,dy=rm.ty-rm.y,d=Math.hypot(dx,dy)||1;rm.x+=dx/d*.6*dt*k;rm.y+=dy/d*.6*dt*k;
+     return;
+    }
+    // marching: nearest building, strongly favouring the Town Hall
+    let tb=null,bd=1e9;for(const b of bl){if(b.dead)continue;let d=Math.hypot(b.x+.5-rm.x,b.y+.5-rm.y);if(b.k=='townhall')d-=12;if(d<bd){bd=d;tb=b}}
+    if(!tb)return;
+    let dx=tb.x+.5-rm.x, dy=tb.y+.5-rm.y, dist=Math.hypot(dx,dy)||1;
+    if(dist > 1.1){
+     rm.x += (dx/dist) * 1.0 * dt * k; rm.y += (dy/dist) * 1.0 * dt * k;
+    } else {
+     tb.hp -= 10 * dt;
+     if(tb.hp <= 0 && !tb.dead){
+      let nm=tb.n;destroyBld(tb);
+      toast('💥 '+nm+' destroyed by raiding monsters!');
+     }
+    }
+   });
   });
 
   const S=stat(HR),H=home();
   if(THCon()){HR.path=[]}
-  else if(HR.hp < S.mhp * 0.4 && H){
-   let distToHome = Math.hypot(HR.x - H.x, HR.y - H.y);
+  else if(HR.hp < S.mhp * 0.4 || HR.resting){
+   HR.resting = HR.hp < S.mhp * 0.98;
+   let distToHome = Math.hypot(HR.x - (H.x+.5), HR.y - (H.y+.5));
    if(distToHome > 1.5){
-    let p = find(HR.x|0, HR.y|0, H.x, H.y);
-    if(p && p.length > 0) {
-     HR.path = p;
-     HR.act = 'Retreating to camp';
-    } else {
-     let safePos = findNearestValidTile(H.x, H.y);
-     HR.x = safePos.x; HR.y = safePos.y; HR.path = [];
+    if(!HR.path.length){
+     let p = find(HR.x|0, HR.y|0, H.x, H.y);
+     if(p && p.length > 0) { HR.path = p; }
     }
+    HR.act = 'Heading home to rest';
    } else {
-    HR.hp = Math.min(S.mhp, HR.hp + S.mhp * 0.2 * dt);
     HR.act = 'Resting at Hero Home';
    }
   } else {
@@ -197,7 +224,7 @@ function townDraw(){
  randomPortals.forEach(p=>{
   g.drawImage(spr('🌀'),p.x,p.y,1,1);
   g.drawImage(spr(EI[p.el]),p.x+.6,p.y-.2,.5,.5);
-  p.raidWave.forEach(rm=>{let sz=rm.stun>0?'💫':'';g.drawImage(spr('👺'),rm.x-.3,rm.y-.6,.6,.6);
+  p.raidWave.forEach(rm=>{let sz=rm.stun>0?'💫':'';g.drawImage(spr(rm.e||'👺'),rm.x-.3,rm.y-.6,.6,.6);
    g.fillStyle='#0008';g.fillRect(rm.x-.3,rm.y-.75,.6,.08);g.fillStyle=rm.slow>0?'#6cf':'#e33';g.fillRect(rm.x-.3,rm.y-.75,.6*Math.max(0,rm.hp/(rm.mhp||35)),.08);
    if(sz)g.drawImage(spr(sz),rm.x-.15,rm.y-1.05,.3,.3)});
  });
@@ -213,4 +240,4 @@ function claim(i){let t=tombs.splice(i,1)[0],p=t.p;ens();RK.forEach(k=>res[k]=(r
 
 function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),randomPortals,over:townHallDestroyed?1:0}))}catch(e){}}
 function loadH(s0){let s=null;try{s=s0&&JSON.parse(localStorage.getItem('fh1h'))}catch(e){}
- if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];if(s.over){townHallDestroyed=1;spd=0}}else{hgen=1;tombs=[];stash=[];HR=null}ens();ensureHero()}
+ if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=(s.randomPortals||[]).slice(0,1);if(s.over){townHallDestroyed=1;spd=0}}else{hgen=1;tombs=[];stash=[];HR=null}ens();ensureHero()}

@@ -32,7 +32,7 @@ function toggleHeroTownOverlay(open){
 function updateTownHeroOverlay(){}
 function townHeroOverlayTick(dt){}
 
-function placeHero(){if(!HR)return;let H=home(),p=findNearestValidTile(H.x,H.y);HR.x=p.x;HR.y=p.y;HR.path=[]}
+function placeHero(at){if(!HR)return;let H=at||home(),p=findNearestValidTile(H.x,H.y);HR.x=p.x;HR.y=p.y;HR.path=[]}
 const _tt=townTick;
 townTick=dt=>{if(dg)return;if(HR&&!(HR.x>=0&&HR.y>=0))placeHero();_tt(dt)};
 const _r=render,_n=newDay,_s=save,_i=init;
