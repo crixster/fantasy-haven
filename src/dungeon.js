@@ -122,8 +122,8 @@ function mk(){if($('dg'))return;let d=document.createElement('div');d.id='dg';d.
  let s=document.createElement('style');s.textContent='#dg{position:fixed;inset:0;z-index:20;background:#222;touch-action:none;user-select:none;-webkit-user-select:none}#dc{width:100%;height:100%;touch-action:none}#dh{position:fixed;left:0;right:0;top:0;padding:calc(6px + env(safe-area-inset-top,0px)) 10px 6px;background:#000a;color:#fff;font-weight:700;text-align:center;pointer-events:none}'+
   '#dx{position:fixed;right:8px;top:calc(92px + env(safe-area-inset-top,0px));background:#0008;color:#fff;border-radius:14px;padding:4px 10px;font-size:13px}'+
   '#dj{position:fixed;left:14px;bottom:calc(22px + env(safe-area-inset-bottom,0px));width:132px;height:132px;border-radius:50%;background:#fff2;border:2px solid #fff5;touch-action:none}#dk{position:absolute;left:38px;top:38px;width:56px;height:56px;border-radius:50%;background:#fff7;pointer-events:none}'+
-  '#dr{position:fixed;right:10px;bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:10px}#ds{display:flex;flex-wrap:wrap-reverse;justify-content:flex-end;gap:6px;max-width:176px}#db{display:flex;gap:10px;align-items:flex-end}'+
-  '#dg .rb,#ds button{width:52px;height:52px;border-radius:50%;background:#fff3;border:2px solid #fff6;color:#fff;font-size:20px;line-height:1.05;padding:0;touch-action:none;position:relative}#dg .big{width:78px;height:78px;font-size:32px;background:#e5484d99}#da.on{background:#ff8a2bcc}';document.head.appendChild(s);
+  '#dr{position:fixed;right:10px;bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:10px}#ds{display:flex;flex-wrap:wrap-reverse;justify-content:flex-end;gap:20px 6px;max-width:190px}#db{display:flex;gap:10px;align-items:flex-end}'+
+  '#dg .rb,#ds button{width:52px;height:52px;border-radius:50%;background:#fff3;border:2px solid #fff6;color:#fff;font-size:20px;line-height:1.05;padding:0;touch-action:none;position:relative}#dg .big{width:78px;height:78px;font-size:32px;background:#e5484d99}#da.on{background:#ff8a2bcc}.sn{position:absolute;left:-6px;right:-6px;bottom:-14px;font-size:9px;line-height:1;text-align:center;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;pointer-events:none}.sl{position:absolute;top:-2px;right:-2px;font-size:9px;background:#000b;color:#fff;padding:1px 3px;border-radius:6px}.cdn{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;color:#fff;background:#000a;border-radius:50%}';document.head.appendChild(s);
  
  d.onclick=e=>{let b=e.target.closest('button[data-s]');if(!b||!dg)return;let id=b.dataset.s;id=='leave'?leave():id=='dodge'?dodge():cast(id)};addEventListener('resize',sizeD);
  
@@ -151,13 +151,13 @@ function skillBar(){
  $('ds').innerHTML=HR.sk.map(id=>{
   let k=SK.find(s=>s.id==id),lvl=(HR.slvl&&HR.slvl[id])||1;
   let bgCol=elColors[k.el]||'#fff3';
-  return`<button data-s="${id}" title="${k.n} (Lv ${lvl}): ${k.desc}" style="border-color:${bgCol}">${k.e}<small style="position:absolute;bottom:2px;right:2px;font-size:9px;background:#000a;padding:1px 3px;border-radius:4px">L${lvl}</small></button>`
+  return`<button data-s="${id}" title="${k.n} (Lv ${lvl}): ${k.desc}" style="border-color:${bgCol}">${k.e}<small class="sn">${k.n}</small><small class="sl">L${lvl}</small></button>`
  }).join('')+(HR.sk.length?'':'<small style="color:#fff;text-align:right">No skills yet.<br>Learn some in the ⚔️ tab.</small>')}
 
 function hudUp(){let S=stat(HR),P=dg.pack,B=dg.boss&&dg.boss.hp>0?dg.boss:null;$('dh').innerHTML=`${EI[dg.z]} Floor ${dg.f}${dg.f%5==0?' · BOSS':''} · ❤️ ${Math.max(0,HR.hp)|0}/${S.mhp} · Lv ${HR.lv}${dg.b.sh>0?' 🛡️'+(dg.b.shv|0):''}`+
  (B?`<br>👹 ${B.nm}${B.enr?' 😡':''}<div style="margin:3px auto;width:70%;height:8px;background:#400;border-radius:4px"><div style="width:${Math.max(0,B.hp/B.mhp*100)}%;height:8px;background:#e33;border-radius:4px"></div></div>`:'')+
  `<br><small>Pack 🪙${P.g} 🪵${P.w} 🪨${P.s} 🍞${P.f} 💠${P.gem} 🎁${P.it.length} ${EL.map(e=>EI[e]+P.E[e]).join(' ')} · stick = move · hold ⚔️ = chase &amp; attack · 💨 dodges red circles</small>`;
- [...$('dg').querySelectorAll('button[data-s]')].forEach(b=>{let id=b.dataset.s,k=SK.find(s=>s.id==id);if(k||id=='dodge'){let c=(dg.cd[id]||0);b.style.opacity=c>0?.4:1;b.textContent=(k?k.e:'💨')+(c>0?' '+Math.ceil(c):'')}})}
+ [...$('dg').querySelectorAll('button[data-s]')].forEach(b=>{let id=b.dataset.s,k=SK.find(s=>s.id==id);if(k||id=='dodge'){let c=(dg.cd[id]||0);b.style.opacity=c>0?.4:1;b.innerHTML=(k?k.e+'<small class="sn">'+k.n+'</small>'+'<small class="sl">L'+((HR.slvl&&HR.slvl[id])||1)+'</small>':'💨')+(c>0?'<b class="cdn">'+Math.ceil(c)+'</b>':'')}})}
 
 function dRender(){const c=$('dc'),x=c.getContext('2d'),W=c.width,Hh=c.height,ts=tsz(),P=dg.p,sk=dg.shake*ts*.25,ox=W/2-P.x*ts+(Math.random()-.5)*sk,oy=Hh/2-P.y*ts+(Math.random()-.5)*sk,pal=PZ[dg.z];x.fillStyle=pal[1];x.fillRect(0,0,W,Hh);
  for(let j=Math.max(0,Math.floor(-oy/ts));j<DH&&oy+j*ts<Hh;j++)for(let i=Math.max(0,Math.floor(-ox/ts));i<DW&&ox+i*ts<W;i++)if(dg.m[j][i]===0){x.fillStyle=pal[0];x.fillRect(ox+i*ts,oy+j*ts,ts+1,ts+1);if((i+j)%2){x.fillStyle='rgba(255,255,255,.12)';x.fillRect(ox+i*ts,oy+j*ts,ts,ts)}}

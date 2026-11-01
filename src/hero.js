@@ -5,13 +5,30 @@ MO={fire:['🦎','🔥'],water:['🐸','🐙'],earth:['🐗','🍄'],wind:['🦅
 PZ={fire:['#f7c6ae','#a45a48'],water:['#b4def2','#4b7ba8'],earth:['#ddcba0','#7b6b49'],wind:['#e2f1ea','#7ea499']},
 GN='I II III IV V VI VII VIII IX X'.split(' '),DW=30,DH=22,RK=['g','w','s','f','c','gem'],SK=[];
 
+const SKI={fireatk:'☄️',firedef:'♨️',firesup:'📣',wateratk:'💦',waterdef:'🫧',watersup:'🌧️',earthatk:'🪨',earthdef:'🗿',earthsup:'🌱',windatk:'🌪️',winddef:'🎐',windsup:'🍃'};
 [['fire','🔥','Ember','Flame Ward','Battle Cry',['Shoot a blazing fireball','Gain a fiery damage shield','Boost attack power']],
  ['water','💧','Splash','Tide Shield','Healing Rain',['Launch a water splash','Gain a protective water shield','Restore health over time']],
  ['earth','🪨','Rock Toss','Stone Skin','Bloom',['Hurl a heavy boulder','Gain robust stone armor','Nurture earth vitality']],
- ['wind','🌪️','Gust','Air Barrier','Tailwind',['Unleash a sharp wind gust','Deflect attacks with a gale','Boost movement & action speed']]].forEach(([el,e,a,d,s,desc])=>['atk','def','sup'].forEach((t,i)=>SK.push({id:el+t,el,t,e,n:[a,d,s][i],desc:desc[i],cd:[2.5,7,9][i]})));
+ ['wind','🌪️','Gust','Air Barrier','Tailwind',['Unleash a sharp wind gust','Deflect attacks with a gale','Boost movement & action speed']]].forEach(([el,e,a,d,s,desc])=>['atk','def','sup'].forEach((t,i)=>SK.push({id:el+t,el,t,e:SKI[el+t],n:[a,d,s][i],desc:desc[i],cd:[2.5,7,9][i]})));
 
 let HR=null,tombs=[],stash=[],hgen=1,lt=0,hg=null,hcmd=0;
 let randomPortals = []; 
+const THCon=()=>typeof THC!=='undefined'&&THC.on&&HR&&HR.alive&&!dg;
+function destroyBld(b){if(!b||b.dead)return;b.dead=1;let i=bl.indexOf(b);if(i>=0)bl.splice(i,1);if(bg[b.y*N+b.x]===b)bg[b.y*N+b.x]=null;assign();calc()}
+function portalPos(){
+  let cx=25,cy=25,best=null;
+  for(let a=0;a<400;a++){
+    let minB=Math.max(8,14-(a/60|0)),minC=Math.max(12,18-(a/60|0));
+    let x=2+Math.floor(Math.random()*(N-4)),y=2+Math.floor(Math.random()*(N-4)),i=y*N+x,t=ter[i];
+    if(t==2||t==3||t==4||t==6||bg[i]||rd[i])continue;
+    if(Math.hypot(x-cx,y-cy)<minC)continue;
+    if(bl.some(b=>Math.hypot(b.x-x,b.y-y)<minB))continue;
+    if(randomPortals.some(p=>Math.hypot(p.x-x,p.y-y)<8))continue;
+    if(!find(cx,cy,x,y))continue;
+    return {x,y};
+  }
+  return null;
+}
 let portalState = { raidTime: 40 };
 
 const home=()=>bl.find(b=>b.k=='hero_home')||bl[0]||{x:N/2|0,y:N/2|0};
@@ -103,11 +120,12 @@ function townTick(dt){
   if(portalState.raidTime <= 0){
    portalState.raidTime = 45;
    if(randomPortals.length < 4){
-    let angle = Math.random() * Math.PI * 2, dist = 12 + Math.random() * 8;
-    let px = Math.round(25 + Math.cos(angle) * dist), py = Math.round(25 + Math.sin(angle) * dist);
-    let el = pk(EL);
-    randomPortals.push({x: px, y: py, el, mons: 0, raidWave: []});
-    toast('🌀 A wild Dungeon Portal ('+EI[el]+') has opened far from town!');
+    let pp = portalPos();
+    if(pp){
+     let el = pk(EL);
+     randomPortals.push({x: pp.x, y: pp.y, el, mons: 0, raidWave: []});
+     toast('🌀 A wild Dungeon Portal ('+EI[el]+') has opened far from town!');
+    }
    }
   }
 
@@ -115,23 +133,23 @@ function townTick(dt){
    p.mons += dt * 0.2;
    if(p.mons >= 8 && p.raidWave.length === 0){
     toast('🚨 Monsters swarming around the ' + EI[p.el] + ' portal are marching on the town!');
-    p.raidWave = Array.from({length: 3}, () => ({x: p.x, y: p.y, hp: 35, atk: 8, el: p.el, e: '👺'}));
+    p.raidWave = Array.from({length: 3}, () => ({x: p.x, y: p.y, hp: 35, mhp: 35, atk: 8, el: p.el, e: '👺'}));
     p.mons = 0;
    }
    if(p.raidWave.length > 0){
     p.raidWave.forEach(rm => {
-     let dx = 25 - rm.x, dy = 25 - rm.y, dist = Math.hypot(dx, dy) || 1;
-     if(dist > 1.5){
-      rm.x += (dx/dist) * 1.0 * dt; rm.y += (dy/dist) * 1.0 * dt;
-     } else {
-      let targetBld = bl.find(b=>b.k=='townhall') || bl[0];
-      if(targetBld){
-       targetBld.hp -= 10 * dt;
-       if(targetBld.hp <= 0 && !targetBld.dead){
-        targetBld.dead = 1;
-        bl.splice(bl.indexOf(targetBld), 1);
-        toast('💥 Town building destroyed by raiding monsters!');
-       }
+     if(rm.stun>0)rm.stun-=dt;if(rm.slow>0)rm.slow-=dt;
+     let k=rm.stun>0?0:rm.slow>0?.5:1;
+     let tb=null,bd=1e9;for(const b of bl){if(b.dead)continue;let d=Math.hypot(b.x+.5-rm.x,b.y+.5-rm.y);if(b.k=='townhall')d-=4;if(d<bd){bd=d;tb=b}}
+     if(!tb)return;
+     let dx=tb.x+.5-rm.x, dy=tb.y+.5-rm.y, dist=Math.hypot(dx,dy)||1;
+     if(dist > 1.1){
+      rm.x += (dx/dist) * 1.0 * dt * k; rm.y += (dy/dist) * 1.0 * dt * k;
+     } else if(k>0){
+      tb.hp -= 10 * dt;
+      if(tb.hp <= 0 && !tb.dead){
+       let nm=tb.n;destroyBld(tb);
+       toast('💥 '+nm+' destroyed by raiding monsters!');
       }
      }
     });
@@ -139,7 +157,8 @@ function townTick(dt){
   });
 
   const S=stat(HR),H=home();
-  if(HR.hp < S.mhp * 0.4 && H){
+  if(THCon()){HR.path=[]}
+  else if(HR.hp < S.mhp * 0.4 && H){
    let distToHome = Math.hypot(HR.x - H.x, HR.y - H.y);
    if(distToHome > 1.5){
     let p = find(HR.x|0, HR.y|0, H.x, H.y);
@@ -177,8 +196,10 @@ function townDraw(){
  tombs.forEach(t=>{g.drawImage(spr('🪦'),t.x,t.y-.1,1,1)});
  randomPortals.forEach(p=>{
   g.drawImage(spr('🌀'),p.x,p.y,1,1);
-  g.fillStyle='#fff';g.font='10px system-ui';g.fillText(EI[p.el],p.x*T,p.y*T);
-  p.raidWave.forEach(rm=>g.drawImage(spr('👺'),rm.x-.3,rm.y-.6,.6,.6));
+  g.drawImage(spr(EI[p.el]),p.x+.6,p.y-.2,.5,.5);
+  p.raidWave.forEach(rm=>{let sz=rm.stun>0?'💫':'';g.drawImage(spr('👺'),rm.x-.3,rm.y-.6,.6,.6);
+   g.fillStyle='#0008';g.fillRect(rm.x-.3,rm.y-.75,.6,.08);g.fillStyle=rm.slow>0?'#6cf':'#e33';g.fillRect(rm.x-.3,rm.y-.75,.6*Math.max(0,rm.hp/(rm.mhp||35)),.08);
+   if(sz)g.drawImage(spr(sz),rm.x-.15,rm.y-1.05,.3,.3)});
  });
  if(HR&&HR.alive&&HR.on){
   g.fillStyle='rgba(255,210,60,.5)';g.beginPath();g.ellipse(HR.x,HR.y+.02,.34,.14,0,0,7);g.fill();
@@ -190,6 +211,6 @@ function townDraw(){
 
 function claim(i){let t=tombs.splice(i,1)[0],p=t.p;ens();RK.forEach(k=>res[k]=(res[k]||0)+p[k]);EL.forEach(e=>res.E[e]+=p.E[e]);if(t.w.t>HR.w.t)HR.w=t.w;if(t.a.t>HR.a.t)HR.a=t.a;(t.it||[]).forEach(x=>stash.push(x));toast('🪦 Recovered '+t.n+'’s loot');calc()}
 
-function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),randomPortals}))}catch(e){}}
+function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),randomPortals,over:townHallDestroyed?1:0}))}catch(e){}}
 function loadH(s0){let s=null;try{s=s0&&JSON.parse(localStorage.getItem('fh1h'))}catch(e){}
- if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];}else{hgen=1;tombs=[];stash=[];HR=null}ens();ensureHero()}
+ if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];if(s.over){townHallDestroyed=1;spd=0}}else{hgen=1;tombs=[];stash=[];HR=null}ens();ensureHero()}

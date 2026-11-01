@@ -56,7 +56,7 @@ LV={Cheerful:['park','festival','tavern','fountain'],Lazy:['park','garden','home
 NAMES='Lily Moss Pip Fern Bram Willa Odo Tansy Rue Finn Hazel Juno Ivy Barley Clover Nell Orin Sage Poppy Thistle Wren Alder Daisy Gus Mabel Rowan Tilly Elm Briar Posy'.split(' '),
 CHAT=['Lovely day, ','Have you tried the bread, ','How’s work, ','Tea later, ','So good to see you, '];
 
-let S0,ter,ter0,vm,rd,bg,bl,npcs,NM,res,tm,D,spd=1,wx,wxT,fest,quests,done,tc,view,tool,cat='Home',follow,M={},cnt={},nid=0,hungry=0,won=0,fr=0,lastR=0,K=1,CW,CH,newArm=0,townHallDestroyed=0;
+let S0,ter,ter0,vm,rd,bg,bl,npcs,NM,res,tm,D,spd=1,wx,wxT,fest,quests,done,tc,view,tool,cat='Home',follow,M={},cnt={},nid=0,hungry=0,won=0,fr=0,lastR=0,K=1,CW,CH,newArm=0,townHallDestroyed=0,thSeen=0;
 const cam={x:25,y:25,z:1,tx:25,ty:25,tz:0},ac={s:0,t:0},SP={},PS=Array.from({length:120},()=>({x:Math.random()*900,y:Math.random()*900,v:Math.random(),p:Math.random()*6}));
 const season=()=>((D-1)/8|0)%4,hh=()=>String(tm|0).padStart(2,'0')+':'+String(tm%1*60|0).padStart(2,'0');
 function spr(e){if(SP[e])return SP[e];let c=document.createElement('canvas');c.width=c.height=64;let x=c.getContext('2d');x.font='46px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(e,32,36);return SP[e]=c}
@@ -85,9 +85,10 @@ function trade(a,r){let[b,s,n]=PR[r];if(a=='buy'){if(res.g<b*n)return toast('Not
 function vTrade(){return'<b>💱 Traveling Merchant</b><div class="lst">'+Object.keys(PR).map(r=>{let[b,s,n]=PR[r];return`<div>${IC[r]} <b>${res[r]|0}</b><span><button data-a="buy:${r}">Buy ${n} · ${b*n}🪙</button><button data-a="sell:${r}">Sell ${n} · ${s*n}🪙</button></span></div>`}).join('')+'</div>'}
 function vBuild2(){let L=cat=='Land'?Object.entries(TF).map(([k,t])=>`<button data-a="pick:${k}">${t[0]}<br>${t[1]}<small>${cost({$:t[4]})}${t[5]?' → +'+t[6]+IC[t[5]]:''}</small></button>`):CAT.filter(b=>b.cat==cat).map(b=>{let l=(b.u>npcs.length)||(b.k=='townhall'&&(cnt.townhall||0)>=1)||(b.k=='hero_home'&&(cnt.hero_home||0)>=1);let note=b.k=='townhall'&&(cnt.townhall||0)>=1?'🔒 Only 1 allowed':b.k=='hero_home'&&(cnt.hero_home||0)>=1?'🔒 Only 1 allowed':l?'🔒 pop '+b.u:cost(b);return`<button data-a="pick:${b.k}" ${l?'disabled':''}>${b.e}<br>${b.n}<small>${note}</small>${b.ln?'<small>on '+[...b.ln].map(c=>LL[c]).join('/')+'</small>':''}</button>`});
  return'<div class="ch">'+['Home','Work','Joy','Magic','Path','Land'].map(c=>`<b data-a="cat:${c}" class="${c==cat?'on':''}">${c}</b>`).join('')+'<b data-a="pick:X">🧹 Demolish</b></div><div class="gr">'+L.join('')+'</div>'}
-function ok(k,x,y){if(x<0||y<0||x>=N||y>=N)return 0;if(k=='townhall'&&(cnt.townhall||0)>=1)return 0;if(k=='hero_home'&&(cnt.hero_home||0)>=1)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
+function ok(k,x,y){if(townHallDestroyed||x<0||y<0||x>=N||y>=N)return 0;if(k=='townhall'&&(cnt.townhall||0)>=1)return 0;if(k=='hero_home'&&(cnt.hero_home||0)>=1)return 0;let i=y*N+x,t=ter[i],b=BK[k],w=t==3||t==4;if(b.r==3)return w&&!rd[i];if(b.ln=='w')return w&&!bg[i]&&!rd[i]&&big(x,y)&&[[1,0],[-1,0],[0,1],[0,-1]].some(([a,d])=>x+a>=0&&y+d>=0&&x+a<N&&y+d<N&&!wat(x+a,y+d));if(w)return 0;if(b.ln&&![...b.ln].some(c=>TL[c]==t))return 0;if(b.r)return !bg[i]&&rd[i]!=b.r;return !bg[i]&&!rd[i]}
 function put(k,x,y){let b=BK[k],i=y*N+x;if(b.r){rd[i]=b.r;return}let mhp=BLD_BASE_HP+(b.$?(b.$[0]+b.$[1]*2):50);let o={...b,x,y,res:[],wk:[],hp:mhp,mhp};bl.push(o);bg[i]=o;return o}
 function place(k,x,y){
+ if(townHallDestroyed)return toast('💀 Game over: your town has fallen');
  if(k=='townhall'&&(cnt.townhall||0)>=1)return toast('🏛️ Only one Town Hall can exist!');
  if(k=='hero_home'&&(cnt.hero_home||0)>=1)return toast('⛺ Only one Hero Home can exist!');
  let b=BK[k],c=b.$;if(!ok(k,x,y))return toast(b.ln&&'Needs '+[...b.ln].map(c=>LL[c]).join(' or ')+(b.ln=='w'?' by the shore':' land')||'Can’t build there');if(b.u>npcs.length)return toast('Locked until pop '+b.u);
@@ -150,7 +151,8 @@ function thought(n){return n.hap<35?pk(['I’m so unhappy…','This town needs m
 function checkTownHall(){
   if(townHallDestroyed) return;
   let th = bl.find(b=>b.k=='townhall');
-  if(bl.length>0 && !th){
+  if(th) thSeen=1;
+  else if(thSeen){
     townHallDestroyed=1;
     toast('💀 GAME OVER: The Town Hall has been destroyed!', 10000);
     spd=0;

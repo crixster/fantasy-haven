@@ -13,7 +13,7 @@ window.vHero=()=>{
  const S=stat(HR);
  return`<div class="nh"><span class="pt">🧝</span><div><b>${HR.n}</b> · Lv ${HR.lv}<br><small>XP ${HR.xp}/${30*HR.lv} · skill points <b>${HR.sp}</b></small></div></div>`+
   `<div class="r">🏠 <b>Hero's Home</b> acts as rest, healing, and stash base.</div>`+
-  `<div class="cr"><button data-a="hf:1">🎯 Find hero</button><button data-a="hm:1" ${HR.alive&&HR.on?'':'disabled'}>📍 Send hero…</button></div>`+
+  `<div class="cr"><button data-a="hf:1">🎯 Find hero</button><button data-a="hc:1" ${HR.alive&&HR.on?'':'disabled'}>🎮 Control hero</button></div>`+
   `❤️ ${HR.hp|0}/${S.mhp} · ⚔️ ${S.atk} · 🛡️ ${S.def}<br>`+
   gearHtml()+
   '<div class="r"><b>Skills & Upgrades</b> (1 SP per level)</div>'+
@@ -44,8 +44,7 @@ addEventListener('click',e=>{
  let a=e.target.closest('[data-a]');if(!a)return;let[c,v,w]=a.dataset.a.split(':');ens();
  if(c=='hl'){let hero=ensureHero();if(hero&&hero.sp>0&&!hero.sk.includes(v)){hero.sp--;hero.sk.push(v);hero.slvl=hero.slvl||{};hero.slvl[v]=1}}
  else if(c=='hup'){let hero=ensureHero();hero.slvl=hero.slvl||{};let lvl=hero.slvl[v]||1;if(hero&&hero.sp>0&&lvl<5){hero.sp--;hero.slvl[v]=lvl+1}}
- else if(c=='hm'){hcmd=1;view=null;toast('📍 Tap map where hero should go',4000)}
- else if(c=='hf'){let hero=ensureHero();if(hero){hero.on=1;follow=hero;cam.tx=hero.x;cam.ty=hero.y;view=null}}
+  else if(c=='hf'){let hero=ensureHero();if(hero){hero.on=1;follow=hero;cam.tx=hero.x;cam.ty=hero.y;view=null}}
  else if(c=='he')equip(+v);else if(c=='hx')unequip(v);else if(c=='hs')v=='m'?salvageMagic():salvage(+v);else return;
  refresh();
 });
@@ -54,15 +53,8 @@ const _t=tap;
 tap=(sx,sy)=>{
   let[wx_,wy]=w2(sx,sy);
   if(tool)return _t(sx,sy);
-  if(hcmd&&HR&&HR.alive){hcmd=0;let X=wx_|0,Y=wy|0;if(X>=0&&Y>=0&&X<N&&Y<N){let p=find(HR.x|0,HR.y|0,X,Y);if(p&&p.length){HR.path=p;HR.act='Following your order';HR.on=1;toast('📍 Hero is on the way')}else toast('Hero cannot reach that spot')}return}
   let ti=tombs.findIndex(t=>Math.hypot(t.x+.5-wx_,t.y+.5-wy)<.8);
   if(ti>=0&&HR){claim(ti);refresh();return}
-  if(HR&&HR.alive&&HR.on&&Math.hypot(HR.x-wx_,HR.y-.3-wy)<.7){view={t:'hero'};follow=HR;hintUI();refresh();return}
-  let pi=randomPortals.findIndex(rp=>Math.hypot(rp.x+.5-wx_,rp.y+.5-wy)<1.2);
-  if(pi>=0){
-    if(!HR||!HR.alive)return toast('Your hero must be alive to enter a portal');
-    let p=randomPortals.splice(pi,1)[0];randomPortals.unshift(p); // gate() = randomPortals[0]
-    enter(p.el);return;
-  }
+  if(HR&&HR.alive&&HR.on&&Math.hypot(HR.x-wx_,HR.y-.3-wy)<.7){thToggle();return}
   _t(sx,sy);
 };
