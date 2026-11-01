@@ -24,7 +24,6 @@ function gainXP(x){if(!HR)return;HR.xp+=Math.round(x*(1+stat(HR).xp/100));while(
 function checkHeroHomeBuilt(b){
  if(b && b.k == 'hero_home' && !HR){
   HR = newHero();
-  // Spawn beside the Hero Home (1 tile to the right)
   HR.x = b.x + 1.5; 
   HR.y = b.y + 0.5; 
   HR.alive = 1; 
@@ -72,7 +71,7 @@ function townTick(dt){
      if(dist > 1.5){
       rm.x += (dx/dist) * 1.0 * dt; rm.y += (dy/dist) * 1.0 * dt;
      } else {
-      let targetBld = bl.find(b=>b.k=='townhall') || bl[0];
+      let targetBld = bl.find(b=>b.k=='cottage') || bl[0];
       if(targetBld){
        targetBld.hp -= 10 * dt;
        if(targetBld.hp <= 0 && !targetBld.dead){
@@ -98,7 +97,6 @@ function townTick(dt){
     HR.act = 'Resting at Hero Home';
    }
   } else {
-   // Autonomous wandering if no path or target is set
    if(!HR.path.length && Math.random() < 0.02){
     let w = wander(HR, 5);
     if(w){
@@ -136,4 +134,4 @@ function claim(i){let t=tombs.splice(i,1)[0],p=t.p;ens();RK.forEach(k=>res[k]=(r
 
 function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),randomPortals}))}catch(e){}}
 function loadH(s0){let s=null;try{s=s0&&JSON.parse(localStorage.getItem('fh1h'))}catch(e){}
- if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];}else{hgen=1;tombs=[];stash=[];HR=null}ens()}
+ if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];}else{hgen=1;tombs=[];stash=[];HR=null}ens();ensureHero()}
