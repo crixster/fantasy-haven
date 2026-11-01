@@ -183,3 +183,4 @@ function dRender(){const c=$('dc'),x=c.getContext('2d'),W=c.width,Hh=c.height,ts
  dg.fx.forEach(e=>{x.globalAlpha=Math.min(1,e.l);x.fillStyle=e.c;x.fillText(e.t,ox+e.x*ts,oy+e.y*ts);x.globalAlpha=1})}
 
 function dFrame(t){let dt=Math.min(.05,t-lt2||.016);lt2=t;dStep(dt);if(!dg)return;dRender();if((hud-=dt)<0){hud=.2;hudUp()}}
+
