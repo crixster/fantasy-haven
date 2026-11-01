@@ -1,18 +1,15 @@
 /* town-link.js — forging, building upgrades, hero home, random portal interaction
- Needs from core.js: render newDay save init refresh sv bl cnt res IC toast calc spd
- Needs from hero.js / dungeon.js: HR tombs stash stat ens gate EL EI SK dg enter claim dFrame townTick townDraw saveH loadH lt
- Needs from items.js: RAR gearHtml equip unequip salvage salvageMagic wel ael
- Provides: craft bump uc upgrade window.upgBtn window.vHero
  Load order: last */
 function craft(sl,el){if(!cnt.smith)return toast('Build a Blacksmith first');let n=HR[sl].t+1;if(n>5)return toast('Already max tier');let g=(sl=='w'?60:50)*n,r=sl=='w'?'s':'w',q=(sl=='w'?10:15)*n,e=3*n;ens();
  if(res.g<g||res[r]<q||res.E[el]<e)return toast(`Need 🪙${g} ${IC[r]}${q} ${EI[el]}${e}`);res.g-=g;res[r]-=q;res.E[el]-=e;HR[sl]={t:n,el};toast((sl=='w'?'⚔️ Weapon':'🛡️ Armor')+' forged: tier '+n+' '+EI[el])}
 const bump=b=>{b.lv=(b.lv||1)+1;['hap','bea','mag','tou'].forEach(k=>{if(b[k])b[k]++});if(b.home)b.home++},uc=b=>{let l=b.lv||1;return{g:80*l,w:20*l,s:20*l,gem:l}};
 function upgrade(i){let b=bl[i];if(!b)return;let c=uc(b);ens();if((b.lv||1)>=4||res.g<c.g||res.w<c.w||res.s<c.s||res.gem<c.gem)return toast('Need 🪙'+c.g+' 🪵'+c.w+' 🪨'+c.s+' 💠'+c.gem);res.g-=c.g;res.w-=c.w;res.s-=c.s;res.gem-=c.gem;bump(b);calc();toast('⭐ '+b.n+' upgraded to level '+b.lv)}
-window.upgBtn=b=>{if(b.d||(!b.job&&!b.home&&!b.hap))return'';let l=b.lv||1;if(l>=4)return'<br>⭐ Max level';let c=uc(b);return`<br>⭐ Level ${l}: +50% output, more appeal<div class="cr"><button data-a="hu:${bl.indexOf(b)}">⬆️ Upgrade · 🪙${c.g} 🪵${c.w} 🪨${c.s} 💠${c.gem}</button></div>`};
+window.upgBtn=b=>{if(!b||b.d||(!b.job&&!b.home&&!b.hap))return'';let l=b.lv||1;if(l>=4)return'<br>⭐ Max level';let c=uc(b);return`<br>⭐ Level ${l}: +50% output, more appeal<div class="cr"><button data-a="hu:${bl.indexOf(b)}">⬆️ Upgrade · 🪙${c.g} 🪵${c.w} 🪨${c.s} 💠${c.gem}</button></div>`};
 const tombHtml=(t,i)=>`<div class="q">🪦 <b>${t.n}</b> (Lv ${t.lv}) · slain by ${t.by||'?'}<br><button data-a="ht:${i}">Recover</button></div>`;
 
 window.vHero=()=>{
  ens();
+ if(!HR) return `<div class="nh"><span>⛺</span><div><b>No Hero Yet</b><br><small>Build a <b>Hero Home</b> in the town build menu to summon your hero!</small></div></div>`;
  const S=stat(HR);
  return`<div class="nh"><span class="pt">🧝</span><div><b>${HR.n}</b> · Lv ${HR.lv}<br><small>XP ${HR.xp}/${30*HR.lv} · skill points <b>${HR.sp}</b></small></div></div>`+
   `<div class="r">🏠 <b>Hero's Home</b> acts as rest, healing, and stash base.</div>`+
@@ -43,10 +40,10 @@ save=()=>{_s();saveH()};init=s=>{_i(s);loadH(s)};
 
 addEventListener('click',e=>{
  let a=e.target.closest('[data-a]');if(!a)return;let[c,v,w]=a.dataset.a.split(':');ens();
- if(c=='hl'){if(HR.sp>0&&!HR.sk.includes(v)){HR.sp--;HR.sk.push(v);HR.slvl=HR.slvl||{};HR.slvl[v]=1}}
- else if(c=='hup'){HR.slvl=HR.slvl||{};let lvl=HR.slvl[v]||1;if(HR.sp>0&&lvl<5){HR.sp--;HR.slvl[v]=lvl+1}}
+ if(c=='hl'&&HR){if(HR.sp>0&&!HR.sk.includes(v)){HR.sp--;HR.sk.push(v);HR.slvl=HR.slvl||{};HR.slvl[v]=1}}
+ else if(c=='hup'&&HR){HR.slvl=HR.slvl||{};let lvl=HR.slvl[v]||1;if(HR.sp>0&&lvl<5){HR.sp--;HR.slvl[v]=lvl+1}}
  else if(c=='hm'){hcmd=1;view=null;toast('📍 Tap map where hero should go',4000)}
- else if(c=='hf'){if(HR.on){follow=HR;cam.tx=HR.x;cam.ty=HR.y;view=null}}
+ else if(c=='hf'){if(HR&&HR.on){follow=HR;cam.tx=HR.x;cam.ty=HR.y;view=null}}
  else if(c=='he')equip(+v);else if(c=='hx')unequip(v);else if(c=='hs')v=='m'?salvageMagic():salvage(+v);else return;
  refresh();
 });
