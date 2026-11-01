@@ -1,5 +1,4 @@
-/* town-link.js — forging, building upgrades, hero home, random portal interaction
- Load order: last */
+/* town-link.js — forging, building upgrades, hero home, random portal interaction */
 function craft(sl,el){if(!cnt.smith)return toast('Build a Blacksmith first');let n=HR[sl].t+1;if(n>5)return toast('Already max tier');let g=(sl=='w'?60:50)*n,r=sl=='w'?'s':'w',q=(sl=='w'?10:15)*n,e=3*n;ens();
  if(res.g<g||res[r]<q||res.E[el]<e)return toast(`Need 🪙${g} ${IC[r]}${q} ${EI[el]}${e}`);res.g-=g;res[r]-=q;res.E[el]-=e;HR[sl]={t:n,el};toast((sl=='w'?'⚔️ Weapon':'🛡️ Armor')+' forged: tier '+n+' '+EI[el])}
 const bump=b=>{b.lv=(b.lv||1)+1;['hap','bea','mag','tou'].forEach(k=>{if(b[k])b[k]++});if(b.home)b.home++},uc=b=>{let l=b.lv||1;return{g:80*l,w:20*l,s:20*l,gem:l}};
@@ -9,6 +8,7 @@ const tombHtml=(t,i)=>`<div class="q">🪦 <b>${t.n}</b> (Lv ${t.lv}) · slain b
 
 window.vHero=()=>{
  ens();
+ ensureHero();
  if(!HR) return `<div class="nh"><span>⛺</span><div><b>No Hero Yet</b><br><small>Build a <b>Hero Home</b> in the town build menu to summon your hero!</small></div></div>`;
  const S=stat(HR);
  return`<div class="nh"><span class="pt">🧝</span><div><b>${HR.n}</b> · Lv ${HR.lv}<br><small>XP ${HR.xp}/${30*HR.lv} · skill points <b>${HR.sp}</b></small></div></div>`+
@@ -35,15 +35,15 @@ function townHeroOverlayTick(dt){}
 
 const _r=render,_n=newDay,_s=save,_i=init;
 render=t=>{_r(t);};
-newDay=()=>{_n();ens();if(HR&&!HR.alive&&--HR.rs<=0){HR.alive=1;HR.hp=stat(HR).mhp;HR.on=0;toast('🧝 Hero resurrected at home!')}};
+newDay=()=>{_n();ens();if(HR&&!HR.alive&&--HR.rs<=0){HR.alive=1;HR.hp=stat(HR).mhp;HR.on=1;toast('🧝 Hero resurrected at home!')}};
 save=()=>{_s();saveH()};init=s=>{_i(s);loadH(s)};
 
 addEventListener('click',e=>{
  let a=e.target.closest('[data-a]');if(!a)return;let[c,v,w]=a.dataset.a.split(':');ens();
- if(c=='hl'&&HR){if(HR.sp>0&&!HR.sk.includes(v)){HR.sp--;HR.sk.push(v);HR.slvl=HR.slvl||{};HR.slvl[v]=1}}
- else if(c=='hup'&&HR){HR.slvl=HR.slvl||{};let lvl=HR.slvl[v]||1;if(HR.sp>0&&lvl<5){HR.sp--;HR.slvl[v]=lvl+1}}
+ if(c=='hl'){let hero=ensureHero();if(hero&&hero.sp>0&&!hero.sk.includes(v)){hero.sp--;hero.sk.push(v);hero.slvl=hero.slvl||{};hero.slvl[v]=1}}
+ else if(c=='hup'){let hero=ensureHero();hero.slvl=hero.slvl||{};let lvl=hero.slvl[v]||1;if(hero&&hero.sp>0&&lvl<5){hero.sp--;hero.slvl[v]=lvl+1}}
  else if(c=='hm'){hcmd=1;view=null;toast('📍 Tap map where hero should go',4000)}
- else if(c=='hf'){if(HR&&HR.on){follow=HR;cam.tx=HR.x;cam.ty=HR.y;view=null}}
+ else if(c=='hf'){let hero=ensureHero();if(hero){hero.on=1;follow=hero;cam.tx=hero.x;cam.ty=hero.y;view=null}}
  else if(c=='he')equip(+v);else if(c=='hx')unequip(v);else if(c=='hs')v=='m'?salvageMagic():salvage(+v);else return;
  refresh();
 });
@@ -60,4 +60,3 @@ tap=(sx,sy)=>{
   }
   _t(sx,sy);
 };
-
