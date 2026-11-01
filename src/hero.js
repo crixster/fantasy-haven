@@ -1,4 +1,4 @@
-/* hero.js — hero data, stats, XP, town-side behaviour, tombstones, save/load, phase 2 portal & raid threat
+/* hero.js — hero data, stats, XP, town-side behaviour, tombstones, save/load, skills with levels & upgrades
  Needs from core.js: res bl cnt sv T K CW CH cam g spr find wander R toast calc
  Needs from items.js (at call time): mods
  Provides: EL EI BEAT mult MO PZ GN DW DH RK SK HR tombs stash hgen hg hcmd home newHero stat ens gate gainXP
@@ -8,14 +8,19 @@ const EL=['fire','water','earth','wind'],EI={fire:'🔥',water:'💧',earth:'�
 mult=(a,d)=>!a||!d?1:BEAT[a]==d?1.5:BEAT[d]==a?.6:1,
 MO={fire:['🦎','🔥'],water:['🐸','🐙'],earth:['🐗','🍄'],wind:['🦅','🦇']},
 PZ={fire:['#f7c6ae','#a45a48'],water:['#b4def2','#4b7ba8'],earth:['#ddcba0','#7b6b49'],wind:['#e2f1ea','#7ea499']},
-GN='I II III IV V VI VII VIII IX X'.split('פס').map(s=>s),DW=30,DH=22,RK=['g','w','s','f','c','gem'],SK=[];
-[['fire','🔥','Ember','Flame Ward','Battle Cry'],['water','💧','Splash','Tide Shield','Healing Rain'],['earth','🪨','Rock Toss','Stone Skin','Bloom'],['wind','🌪️','Gust','Air Barrier','Tailwind']].forEach(([el,e,a,d,s])=>['atk','def','sup'].forEach((t,i)=>SK.push({id:el+t,el,t,e,n:[a,d,s][i],cd:[2.5,7,9][i]})));
+GN='I II III IV V VI VII VIII IX X'.split(' '),DW=30,DH=22,RK=['g','w','s','f','c','gem'],SK=[];
+
+// Skills with clear metadata, distinct emoji, description, and element color classes
+[['fire','🔥','Ember','Flame Ward','Battle Cry',['Shoot a blazing fireball','Gain a fiery damage shield','Boost attack power']],
+ ['water','💧','Splash','Tide Shield','Healing Rain',['Launch a water splash','Gain a protective water shield','Restore health over time']],
+ ['earth','🪨','Rock Toss','Stone Skin','Bloom',['Hurl a heavy boulder','Gain robust stone armor','Nurture earth vitality']],
+ ['wind','🌪️','Gust','Air Barrier','Tailwind',['Unleash a sharp wind gust','Deflect attacks with a gale','Boost movement & action speed']]].forEach(([el,e,a,d,s,desc])=>['atk','def','sup'].forEach((t,i)=>SK.push({id:el+t,el,t,e,n:[a,d,s][i],desc:desc[i],cd:[2.5,7,9][i]})));
 
 let HR,tombs=[],stash=[],hgen=1,lt=0,hg=null,hcmd=0;
 let portalState = { mons: 0, raidTime: 50, raiding: false, raidWave: [] };
 
 const home=()=>bl.find(b=>b.job||b.home)||bl[0]||{x:N/2|0,y:N/2|0};
-const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:0,path:[]}),
+const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],slvl:{},w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:0,path:[]}),
 stat=h=>{const m=mods(h);return{mhp:60+12*(h.lv-1)+h.a.t*10+m.hp,atk:8+2*(h.lv-1)+h.w.t*4+m.atk,def:2+(h.lv-1)+h.a.t*3+m.def,cr:Math.min(60,5+m.cr),ls:Math.min(25,m.ls),ms:Math.min(40,m.ms),gf:m.gf,xp:m.xp}},
 ens=()=>{res.gem=res.gem||0;res.E=res.E||{fire:0,water:0,earth:0,wind:0}},gate=()=>bl.find(b=>b.k=='portal');
 function gainXP(x){HR.xp+=Math.round(x*(1+stat(HR).xp/100));while(HR.xp>=30*HR.lv&&HR.lv<30){HR.xp-=30*HR.lv;HR.lv++;HR.sp++;HR.hp=Math.min(stat(HR).mhp,HR.hp+stat(HR).mhp*.5);if(dg)fx(dg.p.x,dg.p.y-.5,'LEVEL UP! +1 SP','#9f9')}}
@@ -33,7 +38,6 @@ function townTick(dt){if(!HR||!HR.alive)return;const S=stat(HR),G=gate(),H=G||ho
   if(portalState.mons >= 12 && !portalState.raiding){
    portalState.raiding = true;
    toast('🚨 RAID WAVE! Monsters march from the Dungeon Gate to attack town buildings!', 5000);
-   // Spawn raid monsters near gate
    portalState.raidWave = Array.from({length: 4}, ()=>({x: G.x+R(-1,1), y: G.y+R(1,2), hp: 30+HR.lv*10, atk: 6+HR.lv, el: pk(EL), e: '👺'}));
   }
   if(portalState.raiding && portalState.raidWave.length > 0){
@@ -65,7 +69,15 @@ function townTick(dt){if(!HR||!HR.alive)return;const S=stat(HR),G=gate(),H=G||ho
  else if((HR.t-=dt)<0){HR.t=R(3,8);let t=wander({x:H.x,y:H.y},4);if(t){let p=find(HR.x|0,HR.y|0,t.x,t.y);if(p)HR.path=p}}}
 
 function townDraw(){const s=T*cam.z*K;g.setTransform(s,0,0,s,CW/2-cam.x*s,CH/2-cam.y*s);tombs.forEach(t=>{g.drawImage(spr('🪦'),t.x,t.y-.1,1,1);g.globalAlpha=.5+.5*Math.sin(Date.now()/350);g.drawImage(spr('✨'),t.x+.55,t.y-.25,.4,.4);g.globalAlpha=1});
- if(HR&&HR.alive&&HR.on){g.fillStyle='rgba(255,210,60,'+(.4+.2*Math.sin(Date.now()/300))+')';g.beginPath();g.ellipse(HR.x,HR.y+.02,.34,.14,0,0,7);g.fill();g.drawImage(spr('🧝'),HR.x-.3,HR.y-.7,.6,.6);g.drawImage(spr('⚔️'),HR.x+.1,HR.y-.4,.3,.3)}
+ if(HR&&HR.alive&&HR.on){
+  g.fillStyle='rgba(255,210,60,'+(.4+.2*Math.sin(Date.now()/300))+')';g.beginPath();g.ellipse(HR.x,HR.y+.02,.34,.14,0,0,7);g.fill();
+  g.drawImage(spr('🧝'),HR.x-.3,HR.y-.7,.6,.6);
+  g.drawImage(spr('⚔️'),HR.x+.1,HR.y-.4,.3,.3);
+  // Attack range ring around hero in town
+  g.strokeStyle='rgba(240, 143, 180, 0.4)';g.lineWidth=1.5;g.beginPath();g.arc(HR.x,HR.y,1.4,0,7);g.stroke();
+  // Swing / Attack animation flash if active
+  if(HR.b&&HR.b.swing>0){g.strokeStyle='rgba(255,255,255,0.8)';g.lineWidth=2.5;g.beginPath();g.arc(HR.x,HR.y,1.6,0,7);g.stroke()}
+ }
  if(portalState && portalState.raiding){portalState.raidWave.forEach(rm=>{g.drawImage(spr('👺'),rm.x-.3,rm.y-.6,.6,.6);})}
  g.setTransform(1,0,0,1,0,0)}
 
@@ -73,4 +85,4 @@ function claim(i){let t=tombs.splice(i,1)[0],p=t.p;ens();RK.forEach(k=>res[k]=(r
 
 function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),portalState}))}catch(e){}}
 function loadH(s0){let s=null;try{s=s0&&JSON.parse(localStorage.getItem('fh1h'))}catch(e){}
- if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];HR.eq=HR.eq||{w:null,a:null,t:null};HR.on=0;HR.path=[];if(s.portalState)portalState=s.portalState;(s.lv||[]).forEach((l,i)=>{let b=bl[i];while(b&&(b.lv||1)<l)bump(b)})}else{hgen=1;tombs=[];stash=[];HR=newHero()}ens()}
+ if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=0;HR.path=[];if(s.portalState)portalState=s.portalState;(s.lv||[]).forEach((l,i)=>{let b=bl[i];while(b&&(b.lv||1)<l)bump(b)})}else{hgen=1;tombs=[];stash=[];HR=newHero()}ens()}
