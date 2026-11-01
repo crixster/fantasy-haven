@@ -15,7 +15,7 @@ let randomPortals = [];
 let portalState = { raidTime: 40 };
 
 const home=()=>bl.find(b=>b.k=='hero_home')||bl[0]||{x:N/2|0,y:N/2|0};
-const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],slvl:{},w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:0,path:[]}),
+const newHero=()=>({n:'Hero '+(GN[hgen-1]||hgen),lv:1,xp:0,sp:0,sk:[],slvl:{},w:{t:0,el:null},a:{t:0,el:null},eq:{w:null,a:null,t:null},hp:60,alive:1,rs:0,on:1,path:[]}),
 stat=h=>{if(!h)return{mhp:60,atk:8,def:2,cr:5,ls:0,ms:0,gf:0,xp:0};const m=mods(h);return{mhp:60+12*(h.lv-1)+h.a.t*10+m.hp,atk:8+2*(h.lv-1)+h.w.t*4+m.atk,def:2+(h.lv-1)+h.a.t*3+m.def,cr:Math.min(60,5+m.cr),ls:Math.min(25,m.ls),ms:Math.min(40,m.ms),gf:m.gf,xp:m.xp}},
 ens=()=>{res.gem=res.gem||0;res.E=res.E||{fire:0,water:0,earth:0,wind:0}},gate=()=>randomPortals[0];
 
@@ -29,7 +29,19 @@ function checkHeroHomeBuilt(b){
  }
 }
 
+function ensureHero(){
+ if(!HR){
+  let h = bl.find(b => b.k == 'hero_home');
+  if(h){
+   HR = newHero();
+   HR.x = h.x + 0.5; HR.y = h.y + 0.5; HR.alive = 1; HR.on = 1;
+  }
+ }
+ return HR;
+}
+
 function townTick(dt){
+ ensureHero();
  if(HR){
   portalState.raidTime -= dt;
   if(portalState.raidTime <= 0){
@@ -105,4 +117,4 @@ function claim(i){let t=tombs.splice(i,1)[0],p=t.p;ens();RK.forEach(k=>res[k]=(r
 
 function saveH(){try{localStorage.setItem('fh1h',JSON.stringify({HR,tombs,stash,gen:hgen,lv:bl.map(b=>b.lv||1),randomPortals}))}catch(e){}}
 function loadH(s0){let s=null;try{s=s0&&JSON.parse(localStorage.getItem('fh1h'))}catch(e){}
- if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=0;HR.path=[];}randomPortals=s.randomPortals||[];}else{hgen=1;tombs=[];stash=[];HR=null}ens()}
+ if(s){HR=s.HR;tombs=s.tombs||[];hgen=s.gen||1;stash=s.stash||[];if(HR){HR.eq=HR.eq||{w:null,a:null,t:null};HR.slvl=HR.slvl||{};HR.on=1;HR.path=[];}randomPortals=s.randomPortals||[];}else{hgen=1;tombs=[];stash=[];HR=null}ens()}
