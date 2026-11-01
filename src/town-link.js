@@ -22,8 +22,7 @@ window.vHero=()=>{
    if(!learned) return `<button data-a="hl:${k.id}" ${HR.sp>0?'':'disabled'}>${k.e}${k.n}<br><small>Learn</small></button>`;
    return `<button data-a="hup:${k.id}" ${HR.sp>0&&lvl<5?'':'disabled'}>${k.e}${k.n} L${lvl}<br><small>Upgrade</small></button>`;
   }).join('')+'</div>').join('')+
-  `<div class="r"><b>Explore Wild Portals</b> (Walk your hero to any random 🌀 portal on the map to enter)</div>`+
-  gearHtml();
+  `<div class="r"><b>Explore Wild Portals</b> (tap any 🌀 portal on the map to enter)</div>`;
 };
 
 let heroTownOverlay=0;
@@ -33,9 +32,12 @@ function toggleHeroTownOverlay(open){
 function updateTownHeroOverlay(){}
 function townHeroOverlayTick(dt){}
 
+function placeHero(){if(!HR)return;let H=home(),p=findNearestValidTile(H.x,H.y);HR.x=p.x;HR.y=p.y;HR.path=[]}
+const _tt=townTick;
+townTick=dt=>{if(dg)return;if(HR&&!(HR.x>=0&&HR.y>=0))placeHero();_tt(dt)};
 const _r=render,_n=newDay,_s=save,_i=init;
-render=t=>{_r(t);};
-newDay=()=>{_n();ens();if(HR&&!HR.alive&&--HR.rs<=0){HR.alive=1;HR.hp=stat(HR).mhp;HR.on=1;toast('🧝 Hero resurrected at home!')}};
+render=t=>{if(dg){dFrame(t);return}_r(t)};
+newDay=()=>{_n();ens();if(HR&&!HR.alive&&--HR.rs<=0){HR.alive=1;HR.hp=stat(HR).mhp;HR.on=1;placeHero();toast('🧝 Hero resurrected at home!')}};
 save=()=>{_s();saveH()};init=s=>{_i(s);loadH(s)};
 
 addEventListener('click',e=>{
@@ -51,12 +53,16 @@ addEventListener('click',e=>{
 const _t=tap;
 tap=(sx,sy)=>{
   let[wx_,wy]=w2(sx,sy);
-  if(typeof randomPortals !== 'undefined'){
-    let p = randomPortals.find(rp => Math.hypot(rp.x + 0.5 - wx_, rp.y + 0.5 - wy) < 1.2);
-    if(p){
-      enter(p.el);
-      return;
-    }
+  if(tool)return _t(sx,sy);
+  if(hcmd&&HR&&HR.alive){hcmd=0;let X=wx_|0,Y=wy|0;if(X>=0&&Y>=0&&X<N&&Y<N){let p=find(HR.x|0,HR.y|0,X,Y);if(p&&p.length){HR.path=p;HR.act='Following your order';HR.on=1;toast('📍 Hero is on the way')}else toast('Hero cannot reach that spot')}return}
+  let ti=tombs.findIndex(t=>Math.hypot(t.x+.5-wx_,t.y+.5-wy)<.8);
+  if(ti>=0&&HR){claim(ti);refresh();return}
+  if(HR&&HR.alive&&HR.on&&Math.hypot(HR.x-wx_,HR.y-.3-wy)<.7){view={t:'hero'};follow=HR;hintUI();refresh();return}
+  let pi=randomPortals.findIndex(rp=>Math.hypot(rp.x+.5-wx_,rp.y+.5-wy)<1.2);
+  if(pi>=0){
+    if(!HR||!HR.alive)return toast('Your hero must be alive to enter a portal');
+    let p=randomPortals.splice(pi,1)[0];randomPortals.unshift(p); // gate() = randomPortals[0]
+    enter(p.el);return;
   }
   _t(sx,sy);
 };
