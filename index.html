@@ -38,18 +38,18 @@ button:disabled{opacity:.45}
 </style></head><body>
 <script>/* on-screen error banner: shows load/runtime errors on phones */
 (function(){var seen={};function show(m){if(seen[m])return;seen[m]=1;var d=document.getElementById('fhErr');if(!d){d=document.createElement('div');d.id='fhErr';d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99;background:#b00020;color:#fff;font:12px/1.35 system-ui;padding:8px 10px;white-space:pre-wrap;max-height:45%;overflow:auto';(document.body||document.documentElement).appendChild(d)}d.textContent+=m+'\n'}
-addEventListener('error',function(e){var t=e.target;if(t&&t.tagName=='SCRIPT')show('Could not load '+(t.getAttribute('src')||'a script')+'. Upload the whole src/ folder next to index.html (file names are case-sensitive on GitHub).');else show('Error: '+e.message+' ('+String(e.filename||'').split('/').pop()+':'+e.lineno+')')},true);
+addEventListener('error',function(e){var t=e.target;if(t&&t.tagName=='SCRIPT')show('Could not load '+(t.getAttribute('src')||'a script')+'. Upload the whole  folder next to index.html (file names are case-sensitive on GitHub).');else show('Error: '+e.message+' ('+String(e.filename||'').split('/').pop()+':'+e.lineno+')')},true);
 addEventListener('unhandledrejection',function(e){show('Error: '+(e.reason&&e.reason.message||e.reason))})})();</script>
 
 <canvas id="c"></canvas><div id="top"></div><canvas id="mm" width="50" height="50"></canvas>
 <div id="toast"></div><div id="hint" hidden data-a="cancel"></div><div id="sheet" hidden></div>
 <div id="bar"><button data-a="tab:build">🔨</button><button data-a="tab:stats">📊</button><button data-a="tab:folk">🧑</button><button data-a="tab:quests">📜</button><button data-a="tab:trade">💱</button><button data-a="tab:hero">⚔️</button><button data-a="hh:1">🏠</button><span class="sp"></span><button data-a="spd:0">⏸</button><button data-a="spd:1" class="on">1×</button><button data-a="spd:2">2×</button><button data-a="spd:4">4×</button></div>
-<script src="src/core.js"></script>
-<script src="src/hero.js"></script>
-<script src="src/items.js"></script>
-<script src="src/dungeon.js"></script>
-<script src="src/boss.js"></script>
-<script src="src/town-link.js"></script>
-<script src="src/housing.js"></script>
-<script src="src/town-hero.js"></script>
+<script src="core.js"></script>
+<script src="hero.js"></script>
+<script src="items.js"></script>
+<script src="dungeon.js"></script>
+<script src="boss.js"></script>
+<script src="town-link.js"></script>
+<script src="housing.js"></script>
+<script src="town-hero.js"></script>
 </body></html>
